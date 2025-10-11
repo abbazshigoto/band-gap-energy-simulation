@@ -3,10 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Flexible Wiring Circuit Simulator</title>
+    <style>
+        body { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            background-color: #f0f0f0; 
+        }
+        svg { 
+            border: 1px solid #ccc; 
+            background-color: white; 
+        }
+
+        /* General Styles */
+        .meter-case { fill: #333; stroke: black; stroke-width: 2; }
+        .meter-dial { fill: white; }
+        .meter-needle { 
+            stroke: red; 
+            stroke-width: 3; 
+            stroke-linecap: round;
+            transition: transform 0.8s ease-out; 
+        }
+        .label { font-family: sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; }
+        
+        /* Terminal & Wire Styles */
+        .terminal { stroke: black; stroke-width: 1; cursor: pointer; }
+        .terminal.pos { fill: red; } 
+        .terminal.neg { fill: blue; } 
+        .terminal.connected { opacity: 0.5; } 
+
+        .dynamic-wire { stroke: black; stroke-width: 3; fill: none; stroke-linecap: round; }
+        .dynamic-wire.connected { stroke: red; } 
+        
+        /* Battery Styles */
+        .battery-line { stroke: black; stroke-width: 4; stroke-linecap: round; }
+    </style>
 </head>
 <body>
-    <h1>hello world</h1>
-    <h1>good evening</h1>
+
+<svg id="circuit-svg" width="600" height="350" viewbox="0 0 600 350">
+    
+    <g id="power-source" transform="translate(75, 90)">
+        <rect x="-30" y="-30" width="80" height="60" fill="none" stroke="none"/>
+        <line x1="0" y1="-20" x2="0" y2="20" class="battery-line"/>
+        <line x1="15" y1="-10" x2="15" y2="10" class="battery-line"/>
+        <text x="35" y="0" class="label">DC</text>
+        
+        <circle id="t-P1" cx="-25" cy="0" r="5" class="terminal pos" data-type="pos"/> 
+        <circle id="t-P2" cx="500" cy="180" r="5" class="terminal neg" data-type="neg"/> 
+    </g>
+
+    <g id="ammeter" transform="translate(150, 100)">
+        <rect x="0" y="0" width="100" height="60" rx="5" class="meter-case"/>
+        <circle cx="50" cy="30" r="25" class="meter-dial"/>
+        <text x="50" y="55" class="label" fill="#333">A</text>
+        
+        <line id="a-needle" x1="50" y1="30" x2="50" y2="10" class="meter-needle" 
+              style="transform-origin: 50px 30px; transform: rotate(-45deg);"/>
+        
+        <circle id="t-A1" cx="50" cy="0" r="5" class="terminal pos" data-type="pos"/> 
+        <circle id="t-A2" cx="50" cy="60" r="5" class="terminal neg" data-type="neg"/> 
+    </g>
+
+    <g id="voltmeter" transform="translate(350, 200)">
+        <rect x="0" y="0" width="100" height="60" rx="5" class="meter-case"/>
+        <circle cx="50" cy="30" r="25" class="meter-dial"/>
+        <text x="50" y="55" class="label" fill="#333">V</text>
+        
+        <line id="v-needle" x1="50" y1="30" x2="50" y2="10" class="meter-needle" 
+              style="transform-origin: 50px 30px; transform: rotate(-45deg);"/>
+        
+        <circle id="t-V1" cx="50" cy="0" r="5" class="terminal pos" data-type="pos"/> 
+        <circle id="t-V2" cx="50" cy="60" r="5" class="terminal neg" data-type="neg"/> 
+    </g>
+    
+</svg>
+
+<script>
+    // --- JAVASCRIPT LOGIC FOR FLEXIBLE WIRING, POLARITY, AND METER UPDATES ---
+
+    const svg = document.getElementById('circuit-svg');
+    const terminals = document.querySelectorAll('.terminal');
+    const aNeedle = document.getElementById('a-needle');
+    const vNeedle = document.getElementById('v-needle');
+
+    let isDragging = false;
+    let currentWire = null;
+    let startTerminal = null;
+    const snapRadius = 15; 
+    let connections = []; 
+
+    // --- CIRCUIT CONSTANTS ---
+    const VOLTAGE = 12.0; 
+    const RESISTANCE = 30.0;
+    const CURRENT = VOLTAGE / RESISTANCE; 
+    const MAX_ROTATION = 90; 
+
+    // Returns the absolute (x, y) coordinates of a terminal
+    function getTerminalAbsolutePosition(terminal) {
+        let offsetX = 0, offsetY = 0;
+        let parentG = terminal.closest('g');
+        if (parentG && parentG.hasAttribute('transform')) {
+            const match = parentG.getAttribute('transform').match(/translate\(([^,]+),\s*([^)]+)\)/);
+            if (match) {
+                offsetX = parseFloat(match[1]);
+                offsetY = parseFloat(match[2]);
+            }
+        }
+        
+        // Custom offsets for Battery terminals (which are not grouped like meters)
+        if (terminal.id === 't-P1') { offsetX += 100; offsetY += 90; }
+        if (terminal.id === 't-P2') { offsetX += 500; offsetY += 270; } // Adjusted Y for visual clearance
+
+        return {
+            x: parseFloat(terminal.getAttribute('cx')) + offsetX,
+            y: parseFloat(terminal.getAttribute('cy')) + offsetY
+        };
+    }
+
+    // Function to calculate and update meter needles
+    function updateMeterNeedles() {
+        // --- Simplified Circuit Check ---
+        
+        // This checks for the minimum set of connections for a closed loop circuit 
+        // with the ammeter in series and voltmeter in parallel with the load/source.
+        
+        let hasPowerToAmmeter = connections.some(c => (c.start.id === 't-P1' && c.end.id === 't-A1') || (c.end.id === 't-P1' && c.start.id === 't-A1'));
+        let hasAmmeterToGround = connections.some(c => (c.start.id === 't-A2' && c.end.id === 't-P2') || (c.end.id === 't-A2' && c.start.id === 't-P2'));
+        
+        // Ammeter Polarity Check: Must be POS-to-POS (t-P1 to t-A1) and NEG-to-NEG (t-A2 to t-P2)
+        let ammeterCorrectlyWired = connections.some(c => c.start.id === 't-P1' && c.end.id === 't-A1') && connections.some(c => c.start.id === 't-A2' && c.end.id === 't-P2');
+        
+        // Voltmeter Polarity Check (Simplified: measuring across A1/A2 segment)
+        let voltmeterCorrectlyWired = connections.some(c => c.start.id === 't-P1' && c.end.id === 't-V1') && connections.some(c => c.start.id === 't-V2' && c.end.id === 't-P2');
+
+
+        // --- Calculate Angles ---
+
+        // Ammeter Angle: Only moves if fully wired in series AND correct polarity
+        const I = ammeterCorrectlyWired ? CURRENT : 0;
+        const MAX_A_READING = 0.5;
+        let aAngle = (I / MAX_A_READING) * MAX_ROTATION - (MAX_ROTATION / 2);
+        aNeedle.style.transform = `rotate(${Math.min(aAngle, MAX_ROTATION/2)}deg)`;
+
+        // Voltmeter Angle: Only moves if fully wired in parallel AND correct polarity
+        const V = voltmeterCorrectlyWired ? VOLTAGE : 0;
+        const MAX_V_READING = 20.0;
+        let vAngle = (V / MAX_V_READING) * MAX_ROTATION - (MAX_ROTATION / 2);
+        vNeedle.style.transform = `rotate(${Math.min(vAngle, MAX_ROTATION/2)}deg)`;
+
+        // Reset needles if not reading
+        if (!ammeterCorrectlyWired) aNeedle.style.transform = `rotate(-45deg)`;
+        if (!voltmeterCorrectlyWired) vNeedle.style.transform = `rotate(-45deg)`;
+    }
+
+    // Helper to convert mouse coordinates to SVG coordinates
+    function getSVGPoint(evt) {
+        let pt = svg.createSVGPoint();
+        pt.x = evt.clientX;
+        pt.y = evt.clientY;
+        return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+    
+    // --- New Function: Create Flexible Path Data (Manhattan Routing) ---
+    function getFlexiblePath(startX, startY, endX, endY) {
+        // Calculate the halfway point
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+
+        // Determine if the start is closer to a vertical or horizontal change
+        const dx = Math.abs(startX - endX);
+        const dy = Math.abs(startY - endY);
+
+        let pathData = `M ${startX} ${startY}`;
+
+        // Simple T-junction: move horizontally, then vertically
+        if (dx > dy) {
+            // Horizontal move first, then vertical
+            pathData += ` L ${midX} ${startY}`;
+            pathData += ` L ${midX} ${endY}`;
+            pathData += ` L ${endX} ${endY}`;
+        } else {
+            // Vertical move first, then horizontal (preferred for top-to-bottom connections)
+            pathData += ` L ${startX} ${midY}`;
+            pathData += ` L ${endX} ${midY}`;
+            pathData += ` L ${endX} ${endY}`;
+        }
+
+        return pathData;
+    }
+
+
+    // --- 1. START DRAG ---
+    terminals.forEach(terminal => {
+        terminal.addEventListener('mousedown', (e) => {
+            e.preventDefault(); 
+            isDragging = true;
+            startTerminal = terminal;
+            terminal.classList.add('connected');
+            
+            // Remove existing wires (rewiring logic)
+            connections = connections.filter(conn => {
+                if (conn.start === terminal || conn.end === terminal) {
+                    conn.wire.remove();
+                    conn.start.classList.remove('connected');
+                    conn.end.classList.remove('connected');
+                    return false;
+                }
+                return true;
+            });
+
+            updateMeterNeedles(); 
+
+            // Create a new wire path
+            currentWire = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            currentWire.classList.add('dynamic-wire');
+            svg.appendChild(currentWire);
+
+            const startPos = getTerminalAbsolutePosition(terminal);
+            currentWire.setAttribute('d', `M ${startPos.x} ${startPos.y} L ${startPos.x} ${startPos.y}`);
+        });
+    });
+
+    // --- 2. DRAG (Mousemove): Now draws a flexible path to the mouse cursor ---
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const svgPoint = getSVGPoint(e);
+        const startPos = getTerminalAbsolutePosition(startTerminal);
+
+        // Use the flexible path function for the dynamic wire
+        const pathData = getFlexiblePath(startPos.x, startPos.y, svgPoint.x, svgPoint.y);
+        currentWire.setAttribute('d', pathData);
+    });
+
+
+    // --- 3. END DRAG (Mouseup) ---
+    document.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const endPoint = getSVGPoint(e);
+        let endTerminal = null;
+
+        // Check for snapping to a nearby terminal
+        terminals.forEach(terminal => {
+            const termPos = getTerminalAbsolutePosition(terminal);
+            const dist = Math.sqrt(Math.pow(endPoint.x - termPos.x, 2) + Math.pow(endPoint.y - termPos.y, 2));
+
+            if (dist < snapRadius && terminal !== startTerminal) {
+                endTerminal = terminal;
+            }
+        });
+
+        if (endTerminal) {
+            // --- Successful Connection (Snap) ---
+            const startPos = getTerminalAbsolutePosition(startTerminal);
+            const endPos = getTerminalAbsolutePosition(endTerminal);
+            
+            // Finalize wire path with the flexible path function
+            const finalPathData = getFlexiblePath(startPos.x, startPos.y, endPos.x, endPos.y);
+            currentWire.setAttribute('d', finalPathData);
+            currentWire.classList.add('connected');
+            
+            endTerminal.classList.add('connected');
+            connections.push({
+                wire: currentWire,
+                start: startTerminal,
+                end: endTerminal
+            });
+
+            updateMeterNeedles(); // Check circuit and update readings
+
+        } else {
+            // --- Failed Connection ---
+            currentWire.remove();
+            startTerminal.classList.remove('connected');
+            updateMeterNeedles(); 
+        }
+
+        // Reset state
+        currentWire = null;
+        startTerminal = null;
+    });
+    
+    // Initial state
+    updateMeterNeedles();
+
+</script>
 </body>
 </html>
