@@ -1,353 +1,514 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fully Movable Flexible Wiring Circuit</title>
-    <style>
-        body { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            background-color: #f0f0f0; 
-            /* Disable default text selection during dragging */
-            user-select: none; 
-            -webkit-user-select: none;
-            -moz-user-select: none;
-        }
-        svg { 
-            border: 1px solid #ccc; 
-            background-color: white; 
-            cursor: default; /* Reset cursor for SVG area */
-        }
-
-        /* Component Styles */
-        .movable-component { 
-            cursor: grab; /* Indicate draggable element */
-        }
-        .movable-component:active { 
-            cursor: grabbing; 
-        }
-        .meter-case { fill: #333; stroke: black; stroke-width: 2; }
-        .meter-dial { fill: white; }
-        .meter-needle { 
-            stroke: red; 
-            stroke-width: 3; 
-            stroke-linecap: round;
-            transition: transform 0.8s ease-out; 
-        }
-        .label { font-family: sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; }
-        
-        /* Terminal & Wire Styles */
-        .terminal { stroke: black; stroke-width: 1; cursor: pointer; }
-        .terminal.pos { fill: red; } 
-        .terminal.neg { fill: blue; } 
-        .terminal.connected { opacity: 0.5; } 
-
-        .dynamic-wire { stroke: black; stroke-width: 3; fill: none; stroke-linecap: round; }
-        .dynamic-wire.connected { stroke: red; } 
-
-        /* Battery Styles */
-        .battery-line { stroke: black; stroke-width: 4; stroke-linecap: round; }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>virtual lab </title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:#f3f5f7; color:#222; }
+  header { padding:14px 20px; background:#0b84ff; color:white; display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:18px; margin:0; }
+  main { display:flex; gap:12px; padding:12px; }
+  #left,#right { background:white; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(10,10,10,0.06); }
+  #left{width:56%;min-height:560px} #right{width:42%;min-height:560px;display:flex;flex-direction:column;gap:12px}
+  #bench{width:100%;height:520px;border:1px solid #ddd;background:#eef4f9;border-radius:6px;overflow:hidden;position:relative}
+  .movable{cursor:grab;user-select:none} .movable.grabbing{cursor:grabbing}
+  .terminal{r:6;stroke:#333;stroke-width:1}
+  .pos{fill:#e63a3a} .neg{fill:#2b79ff}
+  .wire{stroke-width:3;fill:none;stroke-linecap:round}
+  button{background:#0b84ff;color:white;border:none;padding:10px 12px;border-radius:6px;cursor:pointer}
+  button.secondary{background:#6b7280}
+  .status{padding:8px;border-radius:6px;border:1px solid #e6eef8;background:#fbfdff;margin-top:6px;font-size:13px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #e6eef8;padding:6px 8px;text-align:right}
+  th{background:#f7fafc;text-align:center}
+  footer{padding:12px;text-align:center;font-size:13px;color:#666}
+  .flame{transform-origin:50% 100%;opacity:0;transition:opacity 0.25s ease}
+  .flame.active{opacity:1;animation:flicker 450ms infinite;filter:drop-shadow(0 8px 8px rgba(255,120,40,0.3))}
+  @keyframes flicker{0%,100%{transform:translateY(0)}40%{transform:translateY(-2px)}70%{transform:translateY(1px)}}
+  #thermometer rect,#thermometer circle{transition:all 0.25s ease}
+  @media (max-width:900px){main{flex-direction:column}#left,#right{width:100%}}
+  /* small LCD style for instrument readouts */
+  .lcd { font-family: monospace; font-weight: 600; font-size: 14px; }
+</style>
 </head>
 <body>
+<header>
+  <h1>VR Band-gap Lab — Dynamic Wires & Movable Devices (Ge 0.62 eV)</h1>
+  <div style="font-size:12px;">Drag devices, click terminals to connect wires (red = +, black = -). Log every 5 °C in °C.</div>
+</header>
 
-<svg id="circuit-svg" width="800" height="450" viewbox="0 0 800 450">
-    
-    <g id="power-source" class="movable-component" data-x="100" data-y="100" transform="translate(100, 100)">
-        <rect x="-30" y="-30" width="80" height="60" fill="none" stroke="none"/>
-        <line x1="0" y1="-20" x2="0" y2="20" class="battery-line"/>
-        <line x1="15" y1="-10" x2="15" y2="10" class="battery-line"/>
-        <text x="35" y="0" class="label">DC</text>
-        
-        <circle id="t-P1" cx="-25" cy="-25" r="5" class="terminal pos" data-type="pos"/> <circle id="t-P2" cx="-25" cy="25" r="5" class="terminal neg" data-type="neg"/> </g>
+<main>
+<section id="left">
+  <div id="bench">
+    <svg id="svgbench" viewBox="0 0 1000 600" width="100%" height="100%">
+      <rect x="0" y="0" width="1000" height="600" fill="transparent"/>
 
-    <g id="ammeter" class="movable-component" data-x="400" data-y="100" transform="translate(400, 100)">
-        <rect x="0" y="0" width="100" height="60" rx="5" class="meter-case"/>
-        <circle cx="50" cy="30" r="25" class="meter-dial"/>
-        <text x="50" y="55" class="label" fill="#333">A</text>
-        
-        <line id="a-needle" x1="50" y1="30" x2="50" y2="10" class="meter-needle" 
-              style="transform-origin: 50px 30px; transform: rotate(-45deg);"/>
-        
-        <circle id="t-A1" cx="50" cy="0" r="5" class="terminal pos" data-type="pos"/> 
-        <circle id="t-A2" cx="50" cy="60" r="5" class="terminal neg" data-type="neg"/> 
-    </g>
+      <!-- Power (movable) -->
+      <g id="power" class="movable" transform="translate(70,80)" data-x="70" data-y="80">
+        <rect x="0" y="0" width="140" height="80" rx="6" fill="#fff" stroke="#333"/>
+        <text x="70" y="20" text-anchor="middle" font-size="14" fill="#333">Power Supply</text>
+        <circle id="tp1" class="terminal pos" cx="120" cy="40" r="8"></circle>
+        <circle id="tn1" class="terminal neg" cx="20" cy="40" r="8"></circle>
+        <text x="105" y="70" font-size="12">+12 V</text>
+        <text x="10" y="70" font-size="12">GND</text>
+      </g>
 
-    <g id="voltmeter" class="movable-component" data-x="400" data-y="300" transform="translate(400, 300)">
-        <rect x="0" y="0" width="100" height="60" rx="5" class="meter-case"/>
-        <circle cx="50" cy="30" r="25" class="meter-dial"/>
-        <text x="50" y="55" class="label" fill="#333">V</text>
-        
-        <line id="v-needle" x1="50" y1="30" x2="50" y2="10" class="meter-needle" 
-              style="transform-origin: 50px 30px; transform: rotate(-45deg);"/>
-        
-        <circle id="t-V1" cx="50" cy="0" r="5" class="terminal pos" data-type="pos"/> 
-        <circle id="t-V2" cx="50" cy="60" r="5" class="terminal neg" data-type="neg"/> 
-    </g>
-    
-</svg>
+      <!-- Ammeter (movable) -->
+      <g id="ammeter" class="movable" transform="translate(300,60)" data-x="300" data-y="60">
+        <rect x="0" y="0" width="140" height="70" rx="6" fill="#fff" stroke="#222"/>
+        <text x="70" y="20" text-anchor="middle" font-size="12" fill="#333">Ammeter</text>
+        <text id="ammeterReading" class="lcd" x="70" y="46" text-anchor="middle" fill="#0b84ff">-- µA</text>
+        <circle id="ta1" class="terminal pos" cx="12" cy="30" r="8"></circle>
+        <circle id="ta2" class="terminal neg" cx="128" cy="30" r="8"></circle>
+      </g>
+
+      <!-- Beaker (movable) -->
+      <g id="beaker" class="movable" transform="translate(520,180)" data-x="520" data-y="180">
+        <rect x="0" y="0" width="220" height="200" rx="8" fill="#f7fbff" stroke="#0b74d1"/>
+        <text x="110" y="18" text-anchor="middle" font-size="14" fill="#0b74d1">Beaker (Diode Bath)</text>
+        <ellipse cx="110" cy="160" rx="70" ry="20" fill="#bfe8ff" stroke="#8ad2ff"/>
+        <rect x="40" y="60" width="140" height="100" fill="rgba(180,225,255,0.6)"/>
+        <!-- thermometer -->
+        <g id="thermometer" transform="translate(40,40)">
+          <rect x="-2" y="0" width="4" height="120" fill="#aaa" rx="2"/>
+          <rect id="thermoMercury" x="-1.5" y="120" width="3" height="0" fill="#e63a3a" rx="1.5"/>
+          <circle cx="0" cy="122" r="5" fill="#e63a3a" stroke="#a22"/>
+        </g>
+        <!-- terminals -->
+        <circle id="td1" class="terminal pos" cx="30" cy="20" r="8"></circle>
+        <circle id="td2" class="terminal neg" cx="190" cy="20" r="8"></circle>
+        <text id="tempLabel" x="110" y="185" text-anchor="middle" font-size="14" fill="#123">T = -- °C</text>
+      </g>
+
+      <!-- Trileg stand (static under beaker) -->
+      <g id="trileg" transform="translate(630,380)">
+        <path d="M -60 0 Q -40 70 0 80" stroke="#6b4d2b" stroke-width="6" fill="none" stroke-linecap="round" />
+        <path d="M 60 0 Q 40 70 0 80" stroke="#6b4d2b" stroke-width="6" fill="none" stroke-linecap="round" />
+        <ellipse cx="0" cy="0" rx="70" ry="14" fill="#efe7db" stroke="#cbb897" />
+      </g>
+
+      <!-- Burner (static) -->
+      <g id="burner" transform="translate(630,465)">
+        <rect x="-20" y="0" width="40" height="18" rx="6" fill="#444" stroke="#222"/>
+        <g id="flameGroup" class="flame" transform="translate(0,0)">
+          <path d="M0 0 C -8 -20 -6 -40 0 -50 C 6 -40 8 -20 0 0 Z" fill="#ffb957"/>
+          <path d="M0 -8 C -3 -16 -2 -24 0 -28 C 2 -24 3 -16 0 -8 Z" fill="#ff5a3c"/>
+        </g>
+      </g>
+
+      <!-- Voltmeter (movable) -->
+      <g id="voltmeter" class="movable" transform="translate(780,60)" data-x="780" data-y="60">
+        <rect x="0" y="0" width="140" height="70" rx="6" fill="#fff" stroke="#222"/>
+        <text x="70" y="20" text-anchor="middle" font-size="12" fill="#333">Voltmeter</text>
+        <text id="voltmeterReading" class="lcd" x="70" y="46" text-anchor="middle" fill="#e63a3a">-- V</text>
+        <circle id="tv1" class="terminal pos" cx="12" cy="30" r="8"></circle>
+        <circle id="tv2" class="terminal neg" cx="128" cy="30" r="8"></circle>
+      </g>
+
+      <!-- Wire container -->
+      <g id="wires"></g>
+
+    </svg>
+  </div>
+
+  <!-- Controls -->
+  <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+    <div>
+      <button id="startBurner">Start Heating</button>
+      <button id="stopBurner" class="secondary">Start Cooling</button>
+      <button id="resetWires" class="secondary">Reset Wires</button>
+      <button id="clearLog" class="secondary">Clear Data</button>
+      <button id="downloadCSV">Download CSV</button>
+    </div>
+    <div class="status" id="topStatus"></div>
+  </div>
+</section>
+
+<section id="right">
+  <h3>Recorded Data</h3>
+  <table id="dataTable">
+    <thead><tr><th>#</th><th>T (°C)</th><th>Heating (µA)</th><th>Cooling (µA)</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Plot & Results (ln(Is/T²) vs 1/T)</h3>
+  <canvas id="fitChart"></canvas>
+  <div style="margin-top:8px;"><b>Fit Eg:</b> <span id="egVal">--</span> eV</div>
+</section>
+</main>
+
+<footer>VR Band-gap Lab — Ge (0.62 eV) — Dynamic wires & movable devices — Frontend-only</footer>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    // --- JAVASCRIPT LOGIC FOR MOVABLE COMPONENTS, WIRING, AND METER UPDATES ---
+/* ============================
+   PART 2: Simulation + Wiring
+   ============================ */
 
-    const svg = document.getElementById('circuit-svg');
-    const terminals = document.querySelectorAll('.terminal');
-    const movableComponents = document.querySelectorAll('.movable-component');
-    const aNeedle = document.getElementById('a-needle');
-    const vNeedle = document.getElementById('v-needle');
+/* ---------- Physical constants & default simulation params ---------- */
+const q = 1.602176634e-19;
+const kB_J = 1.380649e-23;
+const kB_eV = 8.617333262e-5;
+const Eg_true = 0.7;       // Ge default
+const A_prefactor = 1.2e8;
 
-    let isDraggingComponent = false;
-    let isDraggingWire = false;
-    let activeComponent = null;
-    let offset = { x: 0, y: 0 }; // Used for component dragging offset
-    
-    let currentWire = null;
-    let startTerminal = null;
-    const snapRadius = 15; 
-    let connections = []; // { wire: <path>, start: <circle>, end: <circle> }
+let T_env = 25.0;           // ambient °C
+let T_current = 25.0;       // current beaker temp °C
+let T_target = 65.0;        // heating target °C
+let tau = 12.0;             // thermal inertia
+let burnerOn = false;
+let loggingInterval = 5.0;  // log every 5 °C
+let nextUp = null, nextDown = null;
 
-    // --- CIRCUIT CONSTANTS ---
-    const VOLTAGE = 12.0; 
-    const RESISTANCE = 30.0;
-    const CURRENT = VOLTAGE / RESISTANCE; 
-    const MAX_ROTATION = 90; 
+let logRecords = [];        // recorded measurements
 
-    // Helper to convert mouse coordinates to SVG coordinates
-    function getSVGPoint(evt) {
-        let pt = svg.createSVGPoint();
-        pt.x = evt.clientX;
-        pt.y = evt.clientY;
-        return pt.matrixTransform(svg.getScreenCTM().inverse());
-    }
+/* ---------- DOM references ---------- */
+const svg = document.getElementById('svgbench');
+const wiresG = document.getElementById('wires');
+const flame = document.getElementById('flameGroup');
+const tempLabel = document.getElementById('tempLabel');
+const mercury = document.getElementById('thermoMercury');
+const ammeterReading = document.getElementById('ammeterReading');
+const voltmeterReading = document.getElementById('voltmeterReading');
+const topStatus = document.getElementById('topStatus');
+const tableBody = document.querySelector('#dataTable tbody');
 
-    // Returns the absolute (x, y) coordinates of a terminal
-    function getTerminalAbsolutePosition(terminal) {
-        // Find the parent movable component group (the G element)
-        let parentG = terminal.closest('.movable-component');
-        if (!parentG) return { x: 0, y: 0 };
+/* ---------- Chart setup ---------- */
+const fitChart = new Chart(document.getElementById('fitChart'), {
+  type: 'scatter',
+  data: {
+    datasets: [
+      { label: 'ln(Is/T²)', data: [], showLine:false, backgroundColor:'#0b84ff', pointRadius:4 },
+      { label: 'Fit', data: [], type:'line', borderColor:'#e63a3a', borderWidth:2, fill:false, pointRadius:0 }
+    ]
+  },
+  options: {
+    scales: {
+      x: { type: 'linear', title: { display: true, text: '1/T (1/K)' } },
+      y: { title: { display: true, text: 'ln(Is/T²)' } }
+    },
+    plugins: { legend: { display: true } }
+  }
+});
 
-        // Read the current position from the 'data-x' and 'data-y' attributes
-        const componentX = parseFloat(parentG.getAttribute('data-x'));
-        const componentY = parseFloat(parentG.getAttribute('data-y'));
+/* ---------- Utility functions ---------- */
+function toKelvin(c) { return c + 273.15; }
+function Is_of_T(Eg_eV, A, T_K) {
+  // using kB_eV for consistent units in exponent: Eg_eV / (kB_eV * T_K)
+  return A * T_K * T_K * Math.exp(-Eg_eV / (kB_eV * T_K));
+}
+function diodeVoltage(I, Is, T_K) {
+  // V = (kT/q) * ln(I/Is + 1)
+  // guard against tiny I/Is numeric issues
+  const ratio = Math.max(0, I / Is);
+  return (kB_J * T_K / q) * Math.log(ratio + 1);
+}
 
-        // Terminal's coordinates are relative to the component's (0, 0)
-        const terminalX = parseFloat(terminal.getAttribute('cx'));
-        const terminalY = parseFloat(terminal.getAttribute('cy'));
+/* ---------- Movable dragging (applies to elements with class 'movable') ---------- */
+(function enableDragging(){
+  const movables = Array.from(svg.querySelectorAll('.movable'));
+  let dragging = null;
+  let start = {x:0, y:0}, orig = {x:0, y:0};
 
-        // Absolute Position = Component Position + Terminal Relative Position
-        return {
-            x: componentX + terminalX,
-            y: componentY + terminalY
-        };
-    }
-    
-    // Function to generate the flexible (Manhattan) path data
-    function getFlexiblePath(startX, startY, endX, endY) {
-        const midX = (startX + endX) / 2;
-        const midY = (startY + endY) / 2;
-        const dx = Math.abs(startX - endX);
-        const dy = Math.abs(startY - endY);
-
-        let pathData = `M ${startX} ${startY}`;
-
-        // Prioritize horizontal-vertical-horizontal if connection is mostly horizontal
-        if (dx > dy * 1.5) { // Use 1.5 multiplier for better routing decision
-            pathData += ` L ${midX} ${startY}`;
-            pathData += ` L ${midX} ${endY}`;
-            pathData += ` L ${endX} ${endY}`;
-        } 
-        // Prioritize vertical-horizontal-vertical if connection is mostly vertical
-        else if (dy > dx * 1.5) {
-            pathData += ` L ${startX} ${midY}`;
-            pathData += ` L ${endX} ${midY}`;
-            pathData += ` L ${endX} ${endY}`;
-        }
-        // Use simpler vertical then horizontal for complex diagonal movements
-        else {
-            pathData += ` L ${startX} ${midY}`;
-            pathData += ` L ${endX} ${midY}`;
-            pathData += ` L ${endX} ${endY}`;
-        }
-
-        return pathData;
-    }
-
-    // Function to redraw all existing wires (called when a component moves)
-    function redrawWires() {
-        connections.forEach(conn => {
-            const startPos = getTerminalAbsolutePosition(conn.start);
-            const endPos = getTerminalAbsolutePosition(conn.end);
-            const pathData = getFlexiblePath(startPos.x, startPos.y, endPos.x, endPos.y);
-            conn.wire.setAttribute('d', pathData);
-        });
-    }
-
-    // Function to calculate and update meter needles (simplified logic retained)
-    function updateMeterNeedles() {
-        // Find connections based on terminal IDs
-        let ammeterCorrectlyWired = connections.some(c => c.start.id === 't-P1' && c.end.id === 't-A1') && connections.some(c => c.start.id === 't-A2' && c.end.id === 't-P2');
-        let voltmeterCorrectlyWired = connections.some(c => c.start.id === 't-P1' && c.end.id === 't-V1') && connections.some(c => c.start.id === 't-V2' && c.end.id === 't-P2');
-
-        const I = ammeterCorrectlyWired ? CURRENT : 0;
-        const V = voltmeterCorrectlyWired ? VOLTAGE : 0;
-        
-        // Ammeter Angle
-        const MAX_A_READING = 0.5;
-        let aAngle = (I / MAX_A_READING) * MAX_ROTATION - (MAX_ROTATION / 2);
-        aNeedle.style.transform = `rotate(${Math.min(aAngle, MAX_ROTATION/2)}deg)`;
-
-        // Voltmeter Angle
-        const MAX_V_READING = 20.0;
-        let vAngle = (V / MAX_V_READING) * MAX_ROTATION - (MAX_ROTATION / 2);
-        vNeedle.style.transform = `rotate(${Math.min(vAngle, MAX_ROTATION/2)}deg)`;
-
-        // Reset needles if incorrect polarity/incomplete circuit
-        if (!ammeterCorrectlyWired) aNeedle.style.transform = `rotate(-45deg)`;
-        if (!voltmeterCorrectlyWired) vNeedle.style.transform = `rotate(-45deg)`;
-    }
-
-    // --- Component Dragging Logic ---
-
-    // Start dragging a component
-    movableComponents.forEach(component => {
-        component.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('terminal')) return; // Ignore if clicking a terminal (wire drag takes precedence)
-
-            isDraggingComponent = true;
-            activeComponent = component;
-            activeComponent.classList.add('grabbing');
-            
-            const pt = getSVGPoint(e);
-            
-            // Calculate offset between mouse click and component origin
-            const componentX = parseFloat(component.getAttribute('data-x'));
-            const componentY = parseFloat(component.getAttribute('data-y'));
-            offset.x = pt.x - componentX;
-            offset.y = pt.y - componentY;
-        });
+  movables.forEach(g => {
+    g.addEventListener('mousedown', (ev)=>{
+      // do not start drag if clicking a terminal (so user can click terminals)
+      if (ev.target.classList.contains('terminal')) return;
+      dragging = g;
+      g.classList.add('grabbing');
+      const pt = clientToSvgPoint(ev.clientX, ev.clientY);
+      start.x = pt.x; start.y = pt.y;
+      orig.x = parseFloat(g.getAttribute('data-x') || 0);
+      orig.y = parseFloat(g.getAttribute('data-y') || 0);
+      ev.preventDefault();
     });
+  });
+  window.addEventListener('mousemove', (ev)=>{
+    if (!dragging) return;
+    const pt = clientToSvgPoint(ev.clientX, ev.clientY);
+    const nx = orig.x + (pt.x - start.x);
+    const ny = orig.y + (pt.y - start.y);
+    dragging.setAttribute('transform', `translate(${nx},${ny})`);
+    dragging.setAttribute('data-x', nx);
+    dragging.setAttribute('data-y', ny);
+    updateAllWires(); // key: dynamically update wires that reference terminals
+  });
+  window.addEventListener('mouseup', ()=>{
+    if (dragging) { dragging.classList.remove('grabbing'); dragging = null; }
+  });
+})();
 
-    // --- Wiring Logic (Mousedown on Terminal) ---
-    terminals.forEach(terminal => {
-        terminal.addEventListener('mousedown', (e) => {
-            e.preventDefault(); 
-            e.stopPropagation(); // Stop event from bubbling up to component drag handler
+function clientToSvgPoint(cx, cy){
+  const pt = svg.createSVGPoint();
+  pt.x = cx; pt.y = cy;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
 
-            isDraggingWire = true;
-            startTerminal = terminal;
-            terminal.classList.add('connected');
-            
-            // Allow re-wiring (delete existing wire)
-            connections = connections.filter(conn => {
-                if (conn.start === terminal || conn.end === terminal) {
-                    conn.wire.remove();
-                    conn.start.classList.remove('connected');
-                    conn.end.classList.remove('connected');
-                    return false;
-                }
-                return true;
-            });
-            updateMeterNeedles();
+/* ---------- Wiring: persistent wire objects that update on drag ---------- */
+/*
+ Structure:
+  - Each connection object: { id, from: element, to: element, color: '#e63a3a'|'#000', pathEl }
+  - Clicking a terminal starts a 'pending' connection (highlighted)
+  - Clicking another terminal completes the connection (creates path + stores)
+  - Wires update their path 'd' whenever devices move
+*/
+let pendingStart = null;
+let connections = []; // array of connection objects
+let nextConnId = 1;
 
-            // Create new wire
-            currentWire = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            currentWire.classList.add('dynamic-wire');
-            svg.appendChild(currentWire);
+function terminalPos(circle) {
+  // compute absolute position of terminal center using parent data-x,y
+  const parent = circle.closest('.movable');
+  const px = parseFloat(parent?.dataset.x || 0);
+  const py = parseFloat(parent?.dataset.y || 0);
+  const cx = parseFloat(circle.getAttribute('cx'));
+  const cy = parseFloat(circle.getAttribute('cy'));
+  return { x: px + cx, y: py + cy };
+}
 
-            const startPos = getTerminalAbsolutePosition(terminal);
-            currentWire.setAttribute('d', `M ${startPos.x} ${startPos.y} L ${startPos.x} ${startPos.y}`);
-        });
+// Click-to-connect behavior
+document.querySelectorAll('.terminal').forEach(t => {
+  t.style.cursor = 'pointer';
+  t.addEventListener('click', (ev)=>{
+    // start new connection if none pending
+    if (!pendingStart) {
+      pendingStart = t;
+      t.setAttribute('data-pending','1');
+      t.style.opacity = 0.5;
+      // set wire color based on terminal polarity (pos => red, neg => black)
+      pendingStart._wireColor = t.classList.contains('pos') ? '#e63a3a' : '#000';
+      return;
+    }
+    // if clicking same terminal again, cancel
+    if (pendingStart === t) {
+      pendingStart.style.opacity = 1;
+      pendingStart.removeAttribute('data-pending');
+      pendingStart = null;
+      return;
+    }
+    // otherwise, create connection
+    const from = pendingStart;
+    const to = t;
+    const color = pendingStart._wireColor || (from.classList.contains('pos') ? '#e63a3a' : '#000');
+    const connId = 'conn' + (nextConnId++);
+    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute('id', connId);
+    path.setAttribute('class','wire');
+    path.setAttribute('stroke', color);
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke-width',3);
+    wiresG.appendChild(path);
+    const conn = { id: connId, from: from, to: to, color: color, pathEl: path };
+    connections.push(conn);
+    // clear pending state
+    pendingStart.style.opacity = 1; pendingStart.removeAttribute('data-pending');
+    pendingStart = null;
+    // draw the path immediately
+    updateConnectionPath(conn);
+    updateStatus();
+    // If circuit just became complete, start logging / record first point automatically
+    if (circuitComplete()) {
+      // record immediate measurement at current temperature
+      recordPoint(T_current, burnerOn ? "Heating" : "Cooling");
+      updateReadings(); updateChart();
+    }
+  });
+});
+
+/* update path for a connection */
+function updateConnectionPath(conn) {
+  const p1 = terminalPos(conn.from);
+  const p2 = terminalPos(conn.to);
+  // Draw a smooth Bezier-ish curve (for visual realism)
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const mx = (p1.x + p2.x) / 2;
+  const my = (p1.y + p2.y) / 2;
+  // control points to create a subtle curve depending on orientation
+  const c1 = `${p1.x + dx*0.25} ${p1.y + dy*0.05}`;
+  const c2 = `${p1.x + dx*0.75} ${p2.y - dy*0.05}`;
+  const d = `M ${p1.x} ${p1.y} C ${c1} ${c2} ${p2.x} ${p2.y}`;
+  conn.pathEl.setAttribute('d', d);
+}
+
+/* called whenever devices move */
+function updateAllWires() {
+  connections.forEach(conn => updateConnectionPath(conn));
+}
+
+/* Reset wires button behavior */
+function resetWires() {
+  connections.forEach(c => {
+    if (c.pathEl && c.pathEl.parentNode) c.pathEl.parentNode.removeChild(c.pathEl);
+  });
+  connections = [];
+  pendingStart = null;
+  document.querySelectorAll('.terminal').forEach(t => { t.style.opacity = 1; t.removeAttribute('data-pending'); });
+  updateStatus();
+}
+
+/* ---------- Circuit detection: require 4 connections connecting the loop
+   Minimal check: ensure there is a chain connecting the devices power->ammeter->beaker->voltmeter->power
+   We'll compute connectivity graph on terminals to confirm loop exists.
+*/
+function circuitComplete() {
+  // build adjacency map of element ids (parent device ids)
+  const adj = {};
+  // helper to map terminal element to parent device id
+  function devIdFromTerm(t) { const p = t.closest('.movable'); return p ? p.id : null; }
+  connections.forEach(conn => {
+    const a = devIdFromTerm(conn.from), b = devIdFromTerm(conn.to);
+    if (!a || !b) return;
+    adj[a] = adj[a] || new Set();
+    adj[b] = adj[b] || new Set();
+    adj[a].add(b); adj[b].add(a);
+  });
+  // we want to check if there is a path that includes power, ammeter, beaker, voltmeter and back to power
+  const required = ['power','ammeter','beaker','voltmeter'];
+  // simple connectivity check: ensure all required nodes exist and are in the same connected component
+  const present = required.filter(r => adj[r]);
+  if (present.length !== required.length) return false;
+  // BFS from 'power' to see reachable nodes
+  const q = ['power'], seen = new Set(['power']);
+  while (q.length){
+    const u = q.shift();
+    (adj[u]||[]).forEach(v=>{
+      if (!seen.has(v)){ seen.add(v); q.push(v); }
     });
+  }
+  // ensure all required nodes were seen
+  const ok = required.every(r => seen.has(r));
+  return ok;
+}
 
+/* ---------- Logging (auto every 5 °C) ---------- */
+function initLoggingTargets() {
+  nextUp = Math.ceil(T_current / loggingInterval) * loggingInterval;
+  nextDown = Math.floor(T_current / loggingInterval) * loggingInterval;
+  if (Math.abs(T_current - nextUp) < 1e-6) nextUp += loggingInterval;
+  if (Math.abs(T_current - nextDown) < 1e-6) nextDown -= loggingInterval;
+}
 
-    // --- Global Mouse Move ---
-    document.addEventListener('mousemove', (e) => {
-        const pt = getSVGPoint(e);
+function maybeLog() {
+  if (!circuitComplete()) return;
+  if (burnerOn) {
+    if (T_current >= nextUp - 1e-6) { recordPoint(T_current, "Heating"); nextUp += loggingInterval; }
+  } else {
+    if (T_current <= nextDown + 1e-6) { recordPoint(T_current, "Cooling"); nextDown -= loggingInterval; }
+  }
+}
 
-        if (isDraggingComponent && activeComponent) {
-            // 1. Move the Component
-            e.preventDefault();
-            
-            const newX = pt.x - offset.x;
-            const newY = pt.y - offset.y;
-            
-            // Update data attributes and transform
-            activeComponent.setAttribute('data-x', newX);
-            activeComponent.setAttribute('data-y', newY);
-            activeComponent.setAttribute('transform', `translate(${newX}, ${newY})`);
-            
-            // 2. Redraw Wires attached to this component
-            redrawWires();
+function recordPoint(Tc, mode) {
+  // record using Kelvin for physics, but table shows Celsius
+  const TK = toKelvin(Tc);
+  const Is = Is_of_T(Eg_true, A_prefactor, TK); // A
+  const rec = { T: Tc.toFixed(2), mode: mode, Is: Is, uA: (Is*1e6).toFixed(3) };
+  logRecords.push(rec);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td style="text-align:center">${logRecords.length}</td>
+                  <td>${rec.T}</td>
+                  <td style="text-align:right">${mode==='Heating'?rec.uA:''}</td>
+                  <td style="text-align:right">${mode==='Cooling'?rec.uA:''}</td>`;
+  tableBody.appendChild(tr);
+  updateChart();
+}
 
-        } else if (isDraggingWire && currentWire) {
-            // 3. Draw the Flexible Wire
-            e.preventDefault();
-            
-            const startPos = getTerminalAbsolutePosition(startTerminal);
-            const pathData = getFlexiblePath(startPos.x, startPos.y, pt.x, pt.y);
-            currentWire.setAttribute('d', pathData);
-        }
-    });
+/* ---------- Chart update and Eg fit ---------- */
+function updateChart() {
+  if (logRecords.length < 2) return;
+  const T = logRecords.map(r => toKelvin(parseFloat(r.T)));
+  const Is = logRecords.map(r => r.Is);
+  const x = T.map(t => 1/t);
+  const y = Is.map((ii,i) => Math.log(ii / (T[i]*T[i])));
+  const xm = x.reduce((a,b)=>a+b)/x.length, ym = y.reduce((a,b)=>a+b)/y.length;
+  let num=0, den=0;
+  for (let i=0;i<x.length;i++){ num += (x[i]-xm)*(y[i]-ym); den += (x[i]-xm)*(x[i]-xm); }
+  const m = num/den, b = ym - m*xm;
+  const Eg_calc = -m * kB_eV;
+  const xs = [Math.min(...x), Math.max(...x)];
+  const ys = xs.map(xx => m*xx + b);
+  fitChart.data.datasets[0].data = x.map((xx,i)=>({x:xx,y:y[i]}));
+  fitChart.data.datasets[1].data = [{x:xs[0],y:ys[0]},{x:xs[1],y:ys[1]}];
+  fitChart.update();
+  document.getElementById('egVal').textContent = Eg_calc.toFixed(4);
+}
 
+/* ---------- Heating/cooling simulation loop ---------- */
+let lastTime = null;
+function simStep(ts) {
+  if (!lastTime) lastTime = ts;
+  const dt = (ts - lastTime) / 1000.0;
+  lastTime = ts;
+  // simple first-order thermal response
+  const alpha = dt / Math.max(0.001, tau);
+  const target = burnerOn ? T_target : T_env;
+  T_current = T_current + (target - T_current) * alpha;
+  // update thermometer graphic (linear mapping)
+  const h = Math.max(0, Math.min(120, (T_current - T_env) / (T_target - T_env) * 120));
+  mercury.setAttribute('y', 120 - h);
+  mercury.setAttribute('height', h);
+  tempLabel.textContent = `T = ${T_current.toFixed(1)} °C`;
+  // update wires (they may need redrawing if devices moved)
+  updateAllWires();
+  // update instrument readings (only when circuit complete)
+  if (circuitComplete()) updateReadings();
+  // do logging if thresholds reached
+  maybeLog();
+  updateStatus();
+  requestAnimationFrame(simStep);
+}
+requestAnimationFrame(simStep);
 
-    // --- Global Mouse Up ---
-    document.addEventListener('mouseup', (e) => {
-        // Reset component dragging state
-        if (isDraggingComponent) {
-            isDraggingComponent = false;
-            if (activeComponent) activeComponent.classList.remove('grabbing');
-            activeComponent = null;
-        }
+/* ---------- Live instrument readings using Shockley eq ---------- */
+function updateReadings() {
+  // compute Is(T)
+  const TK = toKelvin(T_current);
+  const Is = Is_of_T(Eg_true, A_prefactor, TK); // A
+  // For demonstration, assume circuit current = Is (diode near saturation) — 
+  // more complex circuits could solve KCL with series resistances etc.
+  const I = Is;
+  const Vd = diodeVoltage(I, Is, TK);
+  ammeterReading.textContent = `${(I*1e6).toFixed(3)} µA`;
+  voltmeterReading.textContent = `${Vd.toFixed(3)} V`;
+}
 
-        // Handle wire dropping/snapping
-        if (isDraggingWire) {
-            isDraggingWire = false;
+/* ---------- UI Buttons and actions ---------- */
+document.getElementById('startBurner').onclick = () => { burnerOn = true; flame.classList.add('active'); initLoggingTargets(); };
+document.getElementById('stopBurner').onclick = () => { burnerOn = false; flame.classList.remove('active'); initLoggingTargets(); };
+document.getElementById('resetWires').onclick = () => { resetWires(); };
+document.getElementById('clearLog').onclick = () => {
+  logRecords = []; tableBody.innerHTML = ''; fitChart.data.datasets[0].data = []; fitChart.data.datasets[1].data = []; fitChart.update(); document.getElementById('egVal').textContent='--';
+};
+document.getElementById('downloadCSV').onclick = () => {
+  if (!logRecords.length) { alert('No data to export.'); return; }
+  let csv = 'T_C,Mode,Is_A,Is_uA\n';
+  logRecords.forEach(r => csv += `${r.T},${r.mode},${r.Is},${r.uA}\n`);
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'bandgap_data.csv'; a.click();
+};
 
-            const endPoint = getSVGPoint(e);
-            let endTerminal = null;
+/* ---------- Status update ---------- */
+function updateStatus() {
+  const mode = burnerOn ? 'Heating' : 'Cooling';
+  const wiresCount = connections.length;
+  topStatus.textContent = `T=${T_current.toFixed(1)}°C • Mode:${mode} • Wires:${wiresCount} • Logs:${logRecords.length}`;
+}
 
-            // Check for snapping
-            terminals.forEach(terminal => {
-                const termPos = getTerminalAbsolutePosition(terminal);
-                const dist = Math.sqrt(Math.pow(endPoint.x - termPos.x, 2) + Math.pow(endPoint.y - termPos.y, 2));
+/* ---------- Initialization ---------- */
+initLoggingTargets(); updateStatus();
 
-                if (dist < snapRadius && terminal !== startTerminal) {
-                    endTerminal = terminal;
-                }
-            });
+/* ================
+   Helpful functions to tweak:
+   - Eg_true : at top (0.62 eV)
+   - loggingInterval (5 °C)
+   - T_target, tau
+   - A_prefactor to scale Is magnitude
+   ================ */
 
-            if (endTerminal) {
-                // --- Successful Connection ---
-                const startPos = getTerminalAbsolutePosition(startTerminal);
-                const endPos = getTerminalAbsolutePosition(endTerminal);
-                
-                const finalPathData = getFlexiblePath(startPos.x, startPos.y, endPos.x, endPos.y);
-                currentWire.setAttribute('d', finalPathData);
-                currentWire.classList.add('connected');
-                
-                endTerminal.classList.add('connected');
-                connections.push({ wire: currentWire, start: startTerminal, end: endTerminal });
-
-                updateMeterNeedles(); 
-
-            } else {
-                // --- Failed Connection ---
-                currentWire.remove();
-                startTerminal.classList.remove('connected');
-                updateMeterNeedles(); 
-            }
-
-            // Reset wire state
-            currentWire = null;
-            startTerminal = null;
-        }
-    });
-    
-    // Initial state
-    updateMeterNeedles();
 </script>
+
 </body>
 </html>
