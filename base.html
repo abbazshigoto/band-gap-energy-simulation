@@ -1,0 +1,419 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtual Lab - Wall & Bench</title>
+<style>
+/* Reset & base */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: "Poppins", Arial, sans-serif;
+  color: #fff;
+  overflow: auto;
+}
+
+/* Video background */
+.video-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 85%;
+  object-fit: cover;
+  z-index: 0;
+  filter: brightness(1);
+}
+
+/* Button */
+button {
+  display: block;
+  margin: 40px auto 0;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 12px 36px;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+button:hover {
+  background: linear-gradient(90deg, #1d4ed8, #1e40af);
+  transform: scale(1.05);
+}
+/* Wooden bench */
+.lab-bench {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 90px;
+    background: linear-gradient(#8b5a2b, #a0522d);
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 -3px 15px rgba(0,0,0,0.3);
+}
+
+/* Apparatus images */
+.apparatus {
+    position: absolute;
+    cursor: grab;
+    user-select: none;
+}
+
+/* Thermometer container */
+.thermometer {
+    position: absolute;
+    bottom: 30px;
+    right: 200px;
+    width: 50px;
+    height: 200px;
+    background: #eee;
+    border: 2px solid #999;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    cursor: grab;
+}
+
+/* Bulb at bottom */
+.thermometer::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    width: 50px;
+    height: 40px;
+    background: red;
+    border-radius: 50%;
+    border: 2px solid #999;
+}
+
+/* Thermometer mercury */
+.mercury {
+    width: 20px;
+    background: red;
+    border-radius: 10px;
+    position: absolute;
+    bottom: 0;
+    cursor: ns-resize;
+}
+
+/* Thermometer scale */
+.scale {
+    position: absolute;
+    left: 60px;
+    bottom: 0;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+    height: 100%;
+}
+/* Flame height slider */
+#flameControl {
+    width: 140px;         
+    height: 8px;            
+    accent-color: #868381;  
+    margin-bottom: 5px;     
+}
+
+/* Change Color button */
+#colorBtn {
+    background: linear-gradient(90deg, #ff7f50, #81b1df); /* new colors */
+    color: white;
+    border: none;
+    padding: 8px 16px;     /* slightly bigger */
+    border-radius: 10px;   /* rounded corners */
+    font-weight: 600;      /* bold text */
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    transition: 0.3s ease;
+}
+#experiment-name {
+    position: fixed;
+    top: 60px;
+    left: 910px;
+    transform: translateX(-50%);
+    color: white;
+    padding: 12px 24px;
+    font-size: 20px;
+    font-weight: bold; /* changed to fully bold */
+    border-radius: 50px;
+    z-index: 1000;
+    text-align: center;
+}
+
+
+.scale div {
+    font-size: 12px;
+}
+</style>
+</head>
+<body>
+
+
+<!-- Video Background -->
+<video autoplay muted loop class="video-background">
+  <source src="/band-gap-energy-simulation/static/videos/scientist-cartoon.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+<div class="lab-bench"></div>
+<!-- Experiment Name -->
+<!-- Experiment Name -->
+<div id="experiment-name">
+  Determination of Bandgap Energy of a Germanium Diode
+  <div id="apparatus-list">
+    <strong>Apparatus:</strong>
+    <ul>
+      <li>Germanium Diode</li>
+      <li>Ammeter</li>
+      <li>Voltmeter</li>
+      <li>Beaker</li>
+      <li>Thermometer</li>
+      <li>Power Supply</li>
+      <li>Bunsen Burner</li>
+    </ul>
+  </div>
+</div>
+
+<style>
+#experiment-name {
+    position: fixed;
+    top: 60px;
+    left: 910px;
+    transform: translateX(-50%);
+    color: white;
+    padding: 12px 24px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 20px;
+    z-index: 1000;
+    text-align: center;
+}
+
+/* Apparatus list styling (no box) */
+#apparatus-list {
+    margin-top: 8px;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: left;
+    padding-left: 15px;
+    line-height: 1.5;
+}
+
+#apparatus-list ul {
+    margin: 5px 0 0 15px;
+    padding: 0;
+}
+
+#apparatus-list li {
+    list-style-type: disc;
+    margin: 2px 0;
+}
+</style>
+
+
+
+<!-- Beaker -->
+<img class="apparatus" id="beaker" src="images/beaker2.png" alt="Beaker" style="width: 300px; height: 300px; bottom: 1px; left: 750px; right: 100px;">
+
+<!-- Ammeter -->
+<img class="apparatus" id="ammeter" src="images/ammeter.png" alt="Ammeter" style="width: 170px; height: 200px; bottom: 5px; left: 30px; right: 600px;">
+
+<!-- Voltmeter -->
+<img class="apparatus" id="voltmeter" src="images/voltmeter.png" alt="Voltmeter" style="width: 170px; height: 200px; bottom: 2px; left: 200px; right: 300px;">
+
+<!-- Power Supply Image -->
+<img src="images/power_supply.png" id="powerSupply" class="apparatus" style="width:200px; height:350px; bottom:-70px; left:360px; position:absolute; cursor:grab;" alt="5V Power Supply">
+
+<script>
+// Make Power Supply draggable like other apparatus
+const ps = document.getElementById('powerSupply');
+ps.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    let startX = e.clientX;
+    let startY = e.clientY;
+    let origLeft = ps.offsetLeft;
+    let origTop = ps.offsetTop;
+
+    document.onmousemove = function(e){
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
+        ps.style.left = origLeft + dx + 'px';
+        ps.style.top = origTop + dy + 'px';
+    }
+
+    document.onmouseup = function(){
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+});
+</script>
+
+<!-- Thermometer -->
+<div class="thermometer" id="thermometer" style="bottom: 25px; left:1070px;">
+    <div class="mercury" id="mercury" style="height:30px;"></div>
+    <div class="scale">
+        <div>100</div>
+        <div>90</div>
+        <div>80</div>
+        <div>70</div>
+        <div>60</div>
+        <div>50</div>
+        <div>40</div>
+        <div>30</div>
+        <div>20</div>
+        <div>10</div>
+        <div>1</div>
+    </div>
+</div>
+
+<!-- Germanium Diode Test Tube Setup -->
+<div class="apparatus" id="diode-setup" style="left: 1100px; bottom: 10px; width:120px; height:400px; position:absolute;">
+    <!-- Test tube -->
+    <img src="images/testtube2.png" alt="Test Tube" style="position:absolute; width:200%; height:100%; z-index:1;">
+</div>
+
+<script>
+// Make apparatus draggable
+const elements = document.querySelectorAll('.apparatus');
+
+elements.forEach(elem => {
+    elem.addEventListener('mousedown', dragMouseDown);
+
+    function dragMouseDown(e) {
+        e.preventDefault();
+        let pos3 = e.clientX;
+        let pos4 = e.clientY;
+
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+
+        function elementDrag(e) {
+            e.preventDefault();
+            let pos1 = pos3 - e.clientX;
+            let pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+
+            let top = elem.offsetTop - pos2;
+            let left = elem.offsetLeft - pos1;
+            elem.style.top = top + "px";
+            elem.style.left = left + "px";
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+});
+
+// --- Thermometer drag functionality --- //
+const thermometer = document.getElementById('thermometer');
+const mercury = document.getElementById('mercury');
+
+let draggingMercury = false;
+
+// Drag mercury inside thermometer
+mercury.addEventListener('mousedown', function(e) {
+    e.stopPropagation(); // Prevent triggering thermometer drag
+    draggingMercury = true;
+    e.preventDefault();
+    let startY = e.clientY;
+    let startHeight = mercury.offsetHeight;
+
+    document.onmousemove = function(e) {
+        if (!draggingMercury) return;
+        let diff = startY - e.clientY;
+        let newHeight = startHeight + diff;
+        // Limit mercury height
+        if(newHeight < 10) newHeight = 10;
+        if(newHeight > thermometer.offsetHeight - 20) newHeight = thermometer.offsetHeight - 20;
+        mercury.style.height = newHeight + 'px';
+    }
+
+    document.onmouseup = function() {
+        draggingMercury = false;
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+});
+
+// Drag the entire thermometer
+thermometer.addEventListener('mousedown', function(e) {
+    if (e.target === mercury) return; // Skip if mercury is clicked
+    e.preventDefault();
+    let startX = e.clientX;
+    let startY = e.clientY;
+    let origLeft = thermometer.offsetLeft;
+    let origTop = thermometer.offsetTop;
+
+    document.onmousemove = function(e) {
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
+        thermometer.style.left = origLeft + dx + 'px';
+        thermometer.style.top = origTop + dy + 'px';
+    }
+
+    document.onmouseup = function() {
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+});
+</script>
+<style>
+body{margin:0;background:#f8e3b6;height:100vh;display:flex;justify-content:center;align-items:center;font-family:Poppins,sans-serif;overflow:hidden}
+#burner{position:absolute;width:200px;height:420px;cursor:grab}
+.stand{position:absolute;top:215px;left:50%;width:120px;height:170px;transform:translateX(-50%);border-left:4px solid #000;border-right:4px solid #000}
+.top{position:absolute;top:0;left:-10px;width:140px;height:6px;background:#000;border-radius:3px}
+.base{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);width:100px;height:70px;background:linear-gradient(#ddd,#aaa);border-radius:0 0 50px 50px;box-shadow:inset 0 4px 8px rgba(0,0,0,.3)}
+.tube{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);width:50px;height:150px;border-radius:25px;overflow:hidden}
+.flame{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:40px;height:60px;background:radial-gradient(ellipse at center,orange 20%,red 80%);border-radius:50% 50% 40% 40%;animation:flicker .15s infinite alternate}
+@keyframes flicker{0%{transform:translateX(-50%)scaleY(.95);opacity:.9}100%{transform:translateX(-50%)scaleY(1.05);opacity:1}}
+.controls{position:absolute;bottom:0;left:50%;transform:translateX(-50%);text-align:center}
+input{width:120px}
+button{margin-top:2px;background:linear-gradient(90deg,#dba7a7,#2563eb);color:#fff;border:none;padding:6px 12px;border-radius:8px;cursor:pointer}
+</style>
+</head>
+<body>
+<!-- Burner -->
+<div id="burner" style="bottom:50px;"> <!-- changed from default to sit on bench -->
+  <div class="stand"><div class="top"></div></div>
+  <div class="tube"><div class="flame" id="flame"></div></div>
+  <div class="base"></div>
+  <div class="controls">
+    <input type="range" id="flameControl" min="0" max="100" value="50">
+    <button id="colorBtn">Change Color</button>
+  </div>
+</div>
+
+<script>
+const f=document.getElementById('flame'),r=document.getElementById('flameControl'),b=document.getElementById('colorBtn'),a=document.getElementById('burner');
+let blue=false,drag=false,ox,oy;
+r.oninput=()=>{let v=r.value;f.style.height=30+v*0.8+'px';f.style.opacity=.5+v/200}
+b.onclick=()=>{blue=!blue;f.style.background=blue?'radial-gradient(ellipse at center,#00bfff 20%,#0040ff 80%)':'radial-gradient(ellipse at center,orange 20%,red 80%)'}
+a.onmousedown=e=>{drag=true;ox=e.clientX-a.offsetLeft;oy=e.clientY-a.offsetTop;a.style.cursor='grabbing'}
+document.onmousemove=e=>{if(drag){a.style.left=e.clientX-ox+'px';a.style.top=e.clientY-oy+'px'}}
+document.onmouseup=()=>{drag=false;a.style.cursor='grab'}
+</script>
+<!-- Next Page Button -->
+<button onclick="goToSteps()" 
+        style="position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px; cursor:pointer; z-index:1000;">
+  Next 
+</button>
+
+<script>
+function goToSteps() {
+    window.location.href = "layout.html";
+}
+</script>
+
+
+</body>
+</html>
