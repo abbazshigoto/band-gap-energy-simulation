@@ -1,514 +1,273 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>virtual lab </title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Energy Band Gap Simulation</title>
 <style>
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:#f3f5f7; color:#222; }
-  header { padding:14px 20px; background:#0b84ff; color:white; display:flex; align-items:center; gap:12px; }
-  header h1 { font-size:18px; margin:0; }
-  main { display:flex; gap:12px; padding:12px; }
-  #left,#right { background:white; padding:12px; border-radius:8px; box-shadow:0 6px 18px rgba(10,10,10,0.06); }
-  #left{width:56%;min-height:560px} #right{width:42%;min-height:560px;display:flex;flex-direction:column;gap:12px}
-  #bench{width:100%;height:520px;border:1px solid #ddd;background:#eef4f9;border-radius:6px;overflow:hidden;position:relative}
-  .movable{cursor:grab;user-select:none} .movable.grabbing{cursor:grabbing}
-  .terminal{r:6;stroke:#333;stroke-width:1}
-  .pos{fill:#e63a3a} .neg{fill:#2b79ff}
-  .wire{stroke-width:3;fill:none;stroke-linecap:round}
-  button{background:#0b84ff;color:white;border:none;padding:10px 12px;border-radius:6px;cursor:pointer}
-  button.secondary{background:#6b7280}
-  .status{padding:8px;border-radius:6px;border:1px solid #e6eef8;background:#fbfdff;margin-top:6px;font-size:13px}
-  table{border-collapse:collapse;width:100%;font-size:13px}
-  th,td{border:1px solid #e6eef8;padding:6px 8px;text-align:right}
-  th{background:#f7fafc;text-align:center}
-  footer{padding:12px;text-align:center;font-size:13px;color:#666}
-  .flame{transform-origin:50% 100%;opacity:0;transition:opacity 0.25s ease}
-  .flame.active{opacity:1;animation:flicker 450ms infinite;filter:drop-shadow(0 8px 8px rgba(255,120,40,0.3))}
-  @keyframes flicker{0%,100%{transform:translateY(0)}40%{transform:translateY(-2px)}70%{transform:translateY(1px)}}
-  #thermometer rect,#thermometer circle{transition:all 0.25s ease}
-  @media (max-width:900px){main{flex-direction:column}#left,#right{width:100%}}
-  /* small LCD style for instrument readouts */
-  .lcd { font-family: monospace; font-weight: 600; font-size: 14px; }
+:root {
+  --primary:#4b1d7f;
+  --accent:#ff9f1c;
+  --green:#2ca58d;
+  --blue:#118ab2;
+  --yellow:#f0b429;
+  --red:#d14343;
+  --text:#0f1724;
+  --bg:#f5f7fd;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,Arial,sans-serif}
+body{background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;}
+header{background:linear-gradient(90deg, #e3dfff, #f3f5ff);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid var(--primary);}
+header h1{color:var(--primary);font-size:22px;font-weight:700;}
+.main-container{flex:1;display:grid;grid-template-columns:280px 1fr 150px;gap:12px;padding:12px;}
+.left-panel{background:#fff;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 20px rgba(0,0,0,0.05);max-height:100%;overflow-y:auto;}
+.left-panel h2{color:var(--primary);margin-bottom:6px;font-size:16px;}
+.step-card{background:var(--primary);color:#fff;border-radius:8px;padding:10px;font-size:14px;font-weight:600;text-align:center;}
+.controls{display:flex;flex-direction:column;gap:10px}
+.btn{padding:10px;border:none;border-radius:10px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.08);transition:0.2s}
+.btn:hover{transform:translateY(-2px)}
+.btn.green{background:#dff6e8;color:var(--green);}
+.btn.blue{background:#d1eefb;color:var(--blue);}
+.btn.yellow{background:#fff1d1;color:var(--yellow);}
+.btn.red{background:#ffd6d6;color:var(--red);}
+.center{background:#ffffff;border-radius:12px;padding:10px;position:relative;overflow-y:auto;overflow-x:hidden;box-shadow:0 8px 25px rgba(0,0,0,0.05);display:flex;flex-direction:column;}
+.workspace{width:100%;height:500px;margin:12px auto;border-radius:6px;position:relative;overflow:hidden;}
+.apparatus{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:6px;border-radius:12px;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,0.08);min-width:80px;min-height:56px;cursor:grab;user-select:none;}
+.apparatus img {max-width:200px;max-height:70px;}
+.apparatus[data-name="Container"] img {max-width:250px;max-height:180px;}
+.apparatus[data-name="Setup Complete"] img,
+.apparatus[data-name="Experiment Complete"] img {max-width:300px;max-height:200px;}
+#workspaceStatus{margin-top:6px;font-size:14px;color:#0f1724;text-align:center;}
+
+/* connection dots */
+.connector {
+  position:absolute;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  border:2px solid #fff;
+  box-shadow:0 0 4px rgba(0,0,0,0.3);
+  cursor:pointer;
+}
+.connector.left {
+  left:-7px; top:50%; transform:translateY(-50%);
+  background:var(--red);
+}
+.connector.right {
+  right:-7px; top:50%; transform:translateY(-50%);
+  background:var(--blue);
+}
 </style>
 </head>
 <body>
 <header>
-  <h1>VR Band-gap Lab — Dynamic Wires & Movable Devices (Ge 0.62 eV)</h1>
-  <div style="font-size:12px;">Drag devices, click terminals to connect wires (red = +, black = -). Log every 5 °C in °C.</div>
+  <h1>Energy Band Gap Simulation</h1>
 </header>
 
-<main>
-<section id="left">
-  <div id="bench">
-    <svg id="svgbench" viewBox="0 0 1000 600" width="100%" height="100%">
-      <rect x="0" y="0" width="1000" height="600" fill="transparent"/>
-
-      <!-- Power (movable) -->
-      <g id="power" class="movable" transform="translate(70,80)" data-x="70" data-y="80">
-        <rect x="0" y="0" width="140" height="80" rx="6" fill="#fff" stroke="#333"/>
-        <text x="70" y="20" text-anchor="middle" font-size="14" fill="#333">Power Supply</text>
-        <circle id="tp1" class="terminal pos" cx="120" cy="40" r="8"></circle>
-        <circle id="tn1" class="terminal neg" cx="20" cy="40" r="8"></circle>
-        <text x="105" y="70" font-size="12">+12 V</text>
-        <text x="10" y="70" font-size="12">GND</text>
-      </g>
-
-      <!-- Ammeter (movable) -->
-      <g id="ammeter" class="movable" transform="translate(300,60)" data-x="300" data-y="60">
-        <rect x="0" y="0" width="140" height="70" rx="6" fill="#fff" stroke="#222"/>
-        <text x="70" y="20" text-anchor="middle" font-size="12" fill="#333">Ammeter</text>
-        <text id="ammeterReading" class="lcd" x="70" y="46" text-anchor="middle" fill="#0b84ff">-- µA</text>
-        <circle id="ta1" class="terminal pos" cx="12" cy="30" r="8"></circle>
-        <circle id="ta2" class="terminal neg" cx="128" cy="30" r="8"></circle>
-      </g>
-
-      <!-- Beaker (movable) -->
-      <g id="beaker" class="movable" transform="translate(520,180)" data-x="520" data-y="180">
-        <rect x="0" y="0" width="220" height="200" rx="8" fill="#f7fbff" stroke="#0b74d1"/>
-        <text x="110" y="18" text-anchor="middle" font-size="14" fill="#0b74d1">Beaker (Diode Bath)</text>
-        <ellipse cx="110" cy="160" rx="70" ry="20" fill="#bfe8ff" stroke="#8ad2ff"/>
-        <rect x="40" y="60" width="140" height="100" fill="rgba(180,225,255,0.6)"/>
-        <!-- thermometer -->
-        <g id="thermometer" transform="translate(40,40)">
-          <rect x="-2" y="0" width="4" height="120" fill="#aaa" rx="2"/>
-          <rect id="thermoMercury" x="-1.5" y="120" width="3" height="0" fill="#e63a3a" rx="1.5"/>
-          <circle cx="0" cy="122" r="5" fill="#e63a3a" stroke="#a22"/>
-        </g>
-        <!-- terminals -->
-        <circle id="td1" class="terminal pos" cx="30" cy="20" r="8"></circle>
-        <circle id="td2" class="terminal neg" cx="190" cy="20" r="8"></circle>
-        <text id="tempLabel" x="110" y="185" text-anchor="middle" font-size="14" fill="#123">T = -- °C</text>
-      </g>
-
-      <!-- Trileg stand (static under beaker) -->
-      <g id="trileg" transform="translate(630,380)">
-        <path d="M -60 0 Q -40 70 0 80" stroke="#6b4d2b" stroke-width="6" fill="none" stroke-linecap="round" />
-        <path d="M 60 0 Q 40 70 0 80" stroke="#6b4d2b" stroke-width="6" fill="none" stroke-linecap="round" />
-        <ellipse cx="0" cy="0" rx="70" ry="14" fill="#efe7db" stroke="#cbb897" />
-      </g>
-
-      <!-- Burner (static) -->
-      <g id="burner" transform="translate(630,465)">
-        <rect x="-20" y="0" width="40" height="18" rx="6" fill="#444" stroke="#222"/>
-        <g id="flameGroup" class="flame" transform="translate(0,0)">
-          <path d="M0 0 C -8 -20 -6 -40 0 -50 C 6 -40 8 -20 0 0 Z" fill="#ffb957"/>
-          <path d="M0 -8 C -3 -16 -2 -24 0 -28 C 2 -24 3 -16 0 -8 Z" fill="#ff5a3c"/>
-        </g>
-      </g>
-
-      <!-- Voltmeter (movable) -->
-      <g id="voltmeter" class="movable" transform="translate(780,60)" data-x="780" data-y="60">
-        <rect x="0" y="0" width="140" height="70" rx="6" fill="#fff" stroke="#222"/>
-        <text x="70" y="20" text-anchor="middle" font-size="12" fill="#333">Voltmeter</text>
-        <text id="voltmeterReading" class="lcd" x="70" y="46" text-anchor="middle" fill="#e63a3a">-- V</text>
-        <circle id="tv1" class="terminal pos" cx="12" cy="30" r="8"></circle>
-        <circle id="tv2" class="terminal neg" cx="128" cy="30" r="8"></circle>
-      </g>
-
-      <!-- Wire container -->
-      <g id="wires"></g>
-
-    </svg>
-  </div>
-
-  <!-- Controls -->
-  <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
-    <div>
-      <button id="startBurner">Start Heating</button>
-      <button id="stopBurner" class="secondary">Start Cooling</button>
-      <button id="resetWires" class="secondary">Reset Wires</button>
-      <button id="clearLog" class="secondary">Clear Data</button>
-      <button id="downloadCSV">Download CSV</button>
+<div class="main-container">
+  <!-- Left panel -->
+  <aside class="left-panel">
+    <div class="step-card" id="stepInfo">Step 1: Place container & light burner. Position diode.</div>
+    <h2>Controls</h2>
+    <div class="controls">
+      <button class="btn blue" id="placeContainerBtn">Place Container</button>
+      <button class="btn blue" id="pnBtn">P-N Diode</button>
+      <button class="btn blue" id="batteryBtn">Battery</button>
+      <button class="btn blue" id="ammeterBtn">Ammeter</button>
+      <button class="btn blue" id="voltmeterBtn">Voltmeter</button>
+      <button class="btn blue" id="thermoBtn">Thermometer</button>
+      <button class="btn yellow" id="connectBtn">Connect</button>
+      <button class="btn red" id="undoBtn">Undo</button>
     </div>
-    <div class="status" id="topStatus"></div>
-  </div>
-</section>
+  </aside>
 
-<section id="right">
-  <h3>Recorded Data</h3>
-  <table id="dataTable">
-    <thead><tr><th>#</th><th>T (°C)</th><th>Heating (µA)</th><th>Cooling (µA)</th></tr></thead>
-    <tbody></tbody>
-  </table>
-
-  <h3>Plot & Results (ln(Is/T²) vs 1/T)</h3>
-  <canvas id="fitChart"></canvas>
-  <div style="margin-top:8px;"><b>Fit Eg:</b> <span id="egVal">--</span> eV</div>
-</section>
-</main>
-
-<footer>VR Band-gap Lab — Ge (0.62 eV) — Dynamic wires & movable devices — Frontend-only</footer>
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Center workspace -->
+  <main class="center">
+    <div class="workspace" id="workspace">
+      <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></svg>
+    </div>
+    <div id="workspaceStatus">Voltage: 0 V | Temperature: 25 °C</div>
+  </main>
+</div>
 
 <script>
-/* ============================
-   PART 2: Simulation + Wiring
-   ============================ */
+const workspace = document.getElementById("workspace");
+const statusEl = document.getElementById("workspaceStatus");
+const svg = document.getElementById("connections");
+let appIndex = 0;
+let apps = {};
+let history = [];
 
-/* ---------- Physical constants & default simulation params ---------- */
-const q = 1.602176634e-19;
-const kB_J = 1.380649e-23;
-const kB_eV = 8.617333262e-5;
-const Eg_true = 0.7;       // Ge default
-const A_prefactor = 1.2e8;
+/* Function to create apparatus */
+function createApp(name, imgUrl) {
+  const id = `app-${++appIndex}`;
+  const el = document.createElement("div");
+  el.className = "apparatus";
+  el.dataset.id = id;
+  el.dataset.name = name;
 
-let T_env = 25.0;           // ambient °C
-let T_current = 25.0;       // current beaker temp °C
-let T_target = 65.0;        // heating target °C
-let tau = 12.0;             // thermal inertia
-let burnerOn = false;
-let loggingInterval = 5.0;  // log every 5 °C
-let nextUp = null, nextDown = null;
+  if (name === "Voltmeter" || name === "Ammeter") {
+    const label = document.createElement("div");
+    label.textContent = name;
+    label.style.fontSize = "12px";
+    label.style.fontWeight = "700";
+    label.style.color = "var(--primary)";
+    label.style.marginBottom = "4px";
+    label.style.textAlign = "center";
 
-let logRecords = [];        // recorded measurements
+    const box = document.createElement("div");
+    box.textContent = "0";
+    box.style.width = "60px";
+    box.style.height = "30px";
+    box.style.background = "#f9fafb";
+    box.style.border = "2px solid var(--primary)";
+    box.style.borderRadius = "6px";
+    box.style.display = "flex";
+    box.style.alignItems = "center";
+    box.style.justifyContent = "center";
+    box.style.fontWeight = "600";
+    box.style.color = "var(--text)";
+    box.className = "display-box";
 
-/* ---------- DOM references ---------- */
-const svg = document.getElementById('svgbench');
-const wiresG = document.getElementById('wires');
-const flame = document.getElementById('flameGroup');
-const tempLabel = document.getElementById('tempLabel');
-const mercury = document.getElementById('thermoMercury');
-const ammeterReading = document.getElementById('ammeterReading');
-const voltmeterReading = document.getElementById('voltmeterReading');
-const topStatus = document.getElementById('topStatus');
-const tableBody = document.querySelector('#dataTable tbody');
-
-/* ---------- Chart setup ---------- */
-const fitChart = new Chart(document.getElementById('fitChart'), {
-  type: 'scatter',
-  data: {
-    datasets: [
-      { label: 'ln(Is/T²)', data: [], showLine:false, backgroundColor:'#0b84ff', pointRadius:4 },
-      { label: 'Fit', data: [], type:'line', borderColor:'#e63a3a', borderWidth:2, fill:false, pointRadius:0 }
-    ]
-  },
-  options: {
-    scales: {
-      x: { type: 'linear', title: { display: true, text: '1/T (1/K)' } },
-      y: { title: { display: true, text: 'ln(Is/T²)' } }
-    },
-    plugins: { legend: { display: true } }
-  }
-});
-
-/* ---------- Utility functions ---------- */
-function toKelvin(c) { return c + 273.15; }
-function Is_of_T(Eg_eV, A, T_K) {
-  // using kB_eV for consistent units in exponent: Eg_eV / (kB_eV * T_K)
-  return A * T_K * T_K * Math.exp(-Eg_eV / (kB_eV * T_K));
-}
-function diodeVoltage(I, Is, T_K) {
-  // V = (kT/q) * ln(I/Is + 1)
-  // guard against tiny I/Is numeric issues
-  const ratio = Math.max(0, I / Is);
-  return (kB_J * T_K / q) * Math.log(ratio + 1);
-}
-
-/* ---------- Movable dragging (applies to elements with class 'movable') ---------- */
-(function enableDragging(){
-  const movables = Array.from(svg.querySelectorAll('.movable'));
-  let dragging = null;
-  let start = {x:0, y:0}, orig = {x:0, y:0};
-
-  movables.forEach(g => {
-    g.addEventListener('mousedown', (ev)=>{
-      // do not start drag if clicking a terminal (so user can click terminals)
-      if (ev.target.classList.contains('terminal')) return;
-      dragging = g;
-      g.classList.add('grabbing');
-      const pt = clientToSvgPoint(ev.clientX, ev.clientY);
-      start.x = pt.x; start.y = pt.y;
-      orig.x = parseFloat(g.getAttribute('data-x') || 0);
-      orig.y = parseFloat(g.getAttribute('data-y') || 0);
-      ev.preventDefault();
-    });
-  });
-  window.addEventListener('mousemove', (ev)=>{
-    if (!dragging) return;
-    const pt = clientToSvgPoint(ev.clientX, ev.clientY);
-    const nx = orig.x + (pt.x - start.x);
-    const ny = orig.y + (pt.y - start.y);
-    dragging.setAttribute('transform', `translate(${nx},${ny})`);
-    dragging.setAttribute('data-x', nx);
-    dragging.setAttribute('data-y', ny);
-    updateAllWires(); // key: dynamically update wires that reference terminals
-  });
-  window.addEventListener('mouseup', ()=>{
-    if (dragging) { dragging.classList.remove('grabbing'); dragging = null; }
-  });
-})();
-
-function clientToSvgPoint(cx, cy){
-  const pt = svg.createSVGPoint();
-  pt.x = cx; pt.y = cy;
-  return pt.matrixTransform(svg.getScreenCTM().inverse());
-}
-
-/* ---------- Wiring: persistent wire objects that update on drag ---------- */
-/*
- Structure:
-  - Each connection object: { id, from: element, to: element, color: '#e63a3a'|'#000', pathEl }
-  - Clicking a terminal starts a 'pending' connection (highlighted)
-  - Clicking another terminal completes the connection (creates path + stores)
-  - Wires update their path 'd' whenever devices move
-*/
-let pendingStart = null;
-let connections = []; // array of connection objects
-let nextConnId = 1;
-
-function terminalPos(circle) {
-  // compute absolute position of terminal center using parent data-x,y
-  const parent = circle.closest('.movable');
-  const px = parseFloat(parent?.dataset.x || 0);
-  const py = parseFloat(parent?.dataset.y || 0);
-  const cx = parseFloat(circle.getAttribute('cx'));
-  const cy = parseFloat(circle.getAttribute('cy'));
-  return { x: px + cx, y: py + cy };
-}
-
-// Click-to-connect behavior
-document.querySelectorAll('.terminal').forEach(t => {
-  t.style.cursor = 'pointer';
-  t.addEventListener('click', (ev)=>{
-    // start new connection if none pending
-    if (!pendingStart) {
-      pendingStart = t;
-      t.setAttribute('data-pending','1');
-      t.style.opacity = 0.5;
-      // set wire color based on terminal polarity (pos => red, neg => black)
-      pendingStart._wireColor = t.classList.contains('pos') ? '#e63a3a' : '#000';
-      return;
-    }
-    // if clicking same terminal again, cancel
-    if (pendingStart === t) {
-      pendingStart.style.opacity = 1;
-      pendingStart.removeAttribute('data-pending');
-      pendingStart = null;
-      return;
-    }
-    // otherwise, create connection
-    const from = pendingStart;
-    const to = t;
-    const color = pendingStart._wireColor || (from.classList.contains('pos') ? '#e63a3a' : '#000');
-    const connId = 'conn' + (nextConnId++);
-    const path = document.createElementNS("http://www.w3.org/2000/svg","path");
-    path.setAttribute('id', connId);
-    path.setAttribute('class','wire');
-    path.setAttribute('stroke', color);
-    path.setAttribute('fill','none');
-    path.setAttribute('stroke-width',3);
-    wiresG.appendChild(path);
-    const conn = { id: connId, from: from, to: to, color: color, pathEl: path };
-    connections.push(conn);
-    // clear pending state
-    pendingStart.style.opacity = 1; pendingStart.removeAttribute('data-pending');
-    pendingStart = null;
-    // draw the path immediately
-    updateConnectionPath(conn);
-    updateStatus();
-    // If circuit just became complete, start logging / record first point automatically
-    if (circuitComplete()) {
-      // record immediate measurement at current temperature
-      recordPoint(T_current, burnerOn ? "Heating" : "Cooling");
-      updateReadings(); updateChart();
-    }
-  });
-});
-
-/* update path for a connection */
-function updateConnectionPath(conn) {
-  const p1 = terminalPos(conn.from);
-  const p2 = terminalPos(conn.to);
-  // Draw a smooth Bezier-ish curve (for visual realism)
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const mx = (p1.x + p2.x) / 2;
-  const my = (p1.y + p2.y) / 2;
-  // control points to create a subtle curve depending on orientation
-  const c1 = `${p1.x + dx*0.25} ${p1.y + dy*0.05}`;
-  const c2 = `${p1.x + dx*0.75} ${p2.y - dy*0.05}`;
-  const d = `M ${p1.x} ${p1.y} C ${c1} ${c2} ${p2.x} ${p2.y}`;
-  conn.pathEl.setAttribute('d', d);
-}
-
-/* called whenever devices move */
-function updateAllWires() {
-  connections.forEach(conn => updateConnectionPath(conn));
-}
-
-/* Reset wires button behavior */
-function resetWires() {
-  connections.forEach(c => {
-    if (c.pathEl && c.pathEl.parentNode) c.pathEl.parentNode.removeChild(c.pathEl);
-  });
-  connections = [];
-  pendingStart = null;
-  document.querySelectorAll('.terminal').forEach(t => { t.style.opacity = 1; t.removeAttribute('data-pending'); });
-  updateStatus();
-}
-
-/* ---------- Circuit detection: require 4 connections connecting the loop
-   Minimal check: ensure there is a chain connecting the devices power->ammeter->beaker->voltmeter->power
-   We'll compute connectivity graph on terminals to confirm loop exists.
-*/
-function circuitComplete() {
-  // build adjacency map of element ids (parent device ids)
-  const adj = {};
-  // helper to map terminal element to parent device id
-  function devIdFromTerm(t) { const p = t.closest('.movable'); return p ? p.id : null; }
-  connections.forEach(conn => {
-    const a = devIdFromTerm(conn.from), b = devIdFromTerm(conn.to);
-    if (!a || !b) return;
-    adj[a] = adj[a] || new Set();
-    adj[b] = adj[b] || new Set();
-    adj[a].add(b); adj[b].add(a);
-  });
-  // we want to check if there is a path that includes power, ammeter, beaker, voltmeter and back to power
-  const required = ['power','ammeter','beaker','voltmeter'];
-  // simple connectivity check: ensure all required nodes exist and are in the same connected component
-  const present = required.filter(r => adj[r]);
-  if (present.length !== required.length) return false;
-  // BFS from 'power' to see reachable nodes
-  const q = ['power'], seen = new Set(['power']);
-  while (q.length){
-    const u = q.shift();
-    (adj[u]||[]).forEach(v=>{
-      if (!seen.has(v)){ seen.add(v); q.push(v); }
-    });
-  }
-  // ensure all required nodes were seen
-  const ok = required.every(r => seen.has(r));
-  return ok;
-}
-
-/* ---------- Logging (auto every 5 °C) ---------- */
-function initLoggingTargets() {
-  nextUp = Math.ceil(T_current / loggingInterval) * loggingInterval;
-  nextDown = Math.floor(T_current / loggingInterval) * loggingInterval;
-  if (Math.abs(T_current - nextUp) < 1e-6) nextUp += loggingInterval;
-  if (Math.abs(T_current - nextDown) < 1e-6) nextDown -= loggingInterval;
-}
-
-function maybeLog() {
-  if (!circuitComplete()) return;
-  if (burnerOn) {
-    if (T_current >= nextUp - 1e-6) { recordPoint(T_current, "Heating"); nextUp += loggingInterval; }
+    el.appendChild(label);
+    el.appendChild(box);
   } else {
-    if (T_current <= nextDown + 1e-6) { recordPoint(T_current, "Cooling"); nextDown -= loggingInterval; }
+    const img = document.createElement("img");
+    img.src = imgUrl;
+    img.alt = name;
+    el.appendChild(img);
+  }
+
+  // Add red (left) and blue (right) points
+  if (["Battery", "Ammeter", "Voltmeter", "Thermometer", "Experiment Complete"].includes(name)) {
+    const leftDot = document.createElement("div");
+    leftDot.className = "connector left";
+    const rightDot = document.createElement("div");
+    rightDot.className = "connector right";
+    el.appendChild(leftDot);
+    el.appendChild(rightDot);
+
+    [leftDot, rightDot].forEach(dot => dot.addEventListener("click", () => handleConnectorClick(dot)));
+  }
+
+  el.style.left = 100 + appIndex * 20 + "px";
+  el.style.top = 100 + appIndex * 20 + "px";
+
+  makeDraggable(el);
+  workspace.appendChild(el);
+  apps[id] = el;
+  history.push({ type: "add", id, el });
+  return el;
+}
+
+/* Draggable logic */
+function makeDraggable(el) {
+  let offsetX, offsetY, isDown = false;
+  el.addEventListener("mousedown", (e) => {
+    if (e.target.classList.contains("connector")) return; // avoid drag from connector
+    isDown = true;
+    const rect = el.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    el.style.zIndex = 1000;
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDown) return;
+    const wsRect = workspace.getBoundingClientRect();
+    el.style.left = e.clientX - wsRect.left - offsetX + "px";
+    el.style.top  = e.clientY - wsRect.top - offsetY + "px";
+    updateLines();
+  });
+  window.addEventListener("mouseup", () => {
+    if (isDown) checkMerge(el);
+    isDown = false;
+    el.style.zIndex = 1;
+  });
+}
+
+/* Overlap detection */
+function isOverlapping(el1, el2) {
+  const r1 = el1.getBoundingClientRect();
+  const r2 = el2.getBoundingClientRect();
+  return !(r1.top > r2.bottom || r1.bottom < r2.top || r1.left > r2.right || r1.right < r2.left);
+}
+
+/* Merge logic */
+function checkMerge(el) {
+  Object.values(apps).forEach(other => {
+    if (other === el) return;
+    if (isOverlapping(el, other)) {
+      const n1 = el.dataset.name, n2 = other.dataset.name;
+      if ((n1==="Container"&&n2==="P-N Diode")||(n1==="P-N Diode"&&n2==="Container"))
+        mergeApps(el, other, "Setup Complete", "images/pic1.png");
+      if ((n1==="Setup Complete"&&n2==="Thermometer")||(n1==="Thermometer"&&n2==="Setup Complete"))
+        mergeApps(el, other, "Experiment Complete", "images/therinbeak.png");
+    }
+  });
+}
+
+function mergeApps(el1, el2, newName, newImg) {
+  workspace.removeChild(el1);
+  workspace.removeChild(el2);
+  delete apps[el1.dataset.id];
+  delete apps[el2.dataset.id];
+  const newEl = createApp(newName, newImg);
+  statusEl.textContent = `${newName} created!`;
+}
+
+/* --- Wire System --- */
+let firstConnector=null, connections=[];
+function handleConnectorClick(dot){
+  if(!firstConnector){firstConnector=dot;dot.style.outline="2px solid gold";}
+  else if(firstConnector!==dot){
+    drawConnection(firstConnector,dot);
+    firstConnector.style.outline="none";
+    firstConnector=null;
+  }else{
+    firstConnector.style.outline="none";
+    firstConnector=null;
   }
 }
-
-function recordPoint(Tc, mode) {
-  // record using Kelvin for physics, but table shows Celsius
-  const TK = toKelvin(Tc);
-  const Is = Is_of_T(Eg_true, A_prefactor, TK); // A
-  const rec = { T: Tc.toFixed(2), mode: mode, Is: Is, uA: (Is*1e6).toFixed(3) };
-  logRecords.push(rec);
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<td style="text-align:center">${logRecords.length}</td>
-                  <td>${rec.T}</td>
-                  <td style="text-align:right">${mode==='Heating'?rec.uA:''}</td>
-                  <td style="text-align:right">${mode==='Cooling'?rec.uA:''}</td>`;
-  tableBody.appendChild(tr);
-  updateChart();
+function getCenter(el){
+  const r=el.getBoundingClientRect(),ws=workspace.getBoundingClientRect();
+  return {x:r.left-ws.left+r.width/2,y:r.top-ws.top+r.height/2};
+}
+function drawConnection(d1,d2){
+  const p1=getCenter(d1),p2=getCenter(d2);
+  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+  line.setAttribute("x1",p1.x);
+  line.setAttribute("y1",p1.y);
+  line.setAttribute("x2",p2.x);
+  line.setAttribute("y2",p2.y);
+  line.setAttribute("stroke","black");
+  line.setAttribute("stroke-width","2");
+  svg.appendChild(line);
+  connections.push({line,dot1:d1,dot2:d2});
+}
+function updateLines(){
+  connections.forEach(c=>{
+    const p1=getCenter(c.dot1),p2=getCenter(c.dot2);
+    c.line.setAttribute("x1",p1.x);
+    c.line.setAttribute("y1",p1.y);
+    c.line.setAttribute("x2",p2.x);
+    c.line.setAttribute("y2",p2.y);
+  });
 }
 
-/* ---------- Chart update and Eg fit ---------- */
-function updateChart() {
-  if (logRecords.length < 2) return;
-  const T = logRecords.map(r => toKelvin(parseFloat(r.T)));
-  const Is = logRecords.map(r => r.Is);
-  const x = T.map(t => 1/t);
-  const y = Is.map((ii,i) => Math.log(ii / (T[i]*T[i])));
-  const xm = x.reduce((a,b)=>a+b)/x.length, ym = y.reduce((a,b)=>a+b)/y.length;
-  let num=0, den=0;
-  for (let i=0;i<x.length;i++){ num += (x[i]-xm)*(y[i]-ym); den += (x[i]-xm)*(x[i]-xm); }
-  const m = num/den, b = ym - m*xm;
-  const Eg_calc = -m * kB_eV;
-  const xs = [Math.min(...x), Math.max(...x)];
-  const ys = xs.map(xx => m*xx + b);
-  fitChart.data.datasets[0].data = x.map((xx,i)=>({x:xx,y:y[i]}));
-  fitChart.data.datasets[1].data = [{x:xs[0],y:ys[0]},{x:xs[1],y:ys[1]}];
-  fitChart.update();
-  document.getElementById('egVal').textContent = Eg_calc.toFixed(4);
+/* Undo last */
+function undoLast(){
+  const last=history.pop();if(!last)return;
+  if(last.type==="add"){const el=apps[last.id];if(el)workspace.removeChild(el);delete apps[last.id];}
 }
 
-/* ---------- Heating/cooling simulation loop ---------- */
-let lastTime = null;
-function simStep(ts) {
-  if (!lastTime) lastTime = ts;
-  const dt = (ts - lastTime) / 1000.0;
-  lastTime = ts;
-  // simple first-order thermal response
-  const alpha = dt / Math.max(0.001, tau);
-  const target = burnerOn ? T_target : T_env;
-  T_current = T_current + (target - T_current) * alpha;
-  // update thermometer graphic (linear mapping)
-  const h = Math.max(0, Math.min(120, (T_current - T_env) / (T_target - T_env) * 120));
-  mercury.setAttribute('y', 120 - h);
-  mercury.setAttribute('height', h);
-  tempLabel.textContent = `T = ${T_current.toFixed(1)} °C`;
-  // update wires (they may need redrawing if devices moved)
-  updateAllWires();
-  // update instrument readings (only when circuit complete)
-  if (circuitComplete()) updateReadings();
-  // do logging if thresholds reached
-  maybeLog();
-  updateStatus();
-  requestAnimationFrame(simStep);
-}
-requestAnimationFrame(simStep);
-
-/* ---------- Live instrument readings using Shockley eq ---------- */
-function updateReadings() {
-  // compute Is(T)
-  const TK = toKelvin(T_current);
-  const Is = Is_of_T(Eg_true, A_prefactor, TK); // A
-  // For demonstration, assume circuit current = Is (diode near saturation) — 
-  // more complex circuits could solve KCL with series resistances etc.
-  const I = Is;
-  const Vd = diodeVoltage(I, Is, TK);
-  ammeterReading.textContent = `${(I*1e6).toFixed(3)} µA`;
-  voltmeterReading.textContent = `${Vd.toFixed(3)} V`;
-}
-
-/* ---------- UI Buttons and actions ---------- */
-document.getElementById('startBurner').onclick = () => { burnerOn = true; flame.classList.add('active'); initLoggingTargets(); };
-document.getElementById('stopBurner').onclick = () => { burnerOn = false; flame.classList.remove('active'); initLoggingTargets(); };
-document.getElementById('resetWires').onclick = () => { resetWires(); };
-document.getElementById('clearLog').onclick = () => {
-  logRecords = []; tableBody.innerHTML = ''; fitChart.data.datasets[0].data = []; fitChart.data.datasets[1].data = []; fitChart.update(); document.getElementById('egVal').textContent='--';
-};
-document.getElementById('downloadCSV').onclick = () => {
-  if (!logRecords.length) { alert('No data to export.'); return; }
-  let csv = 'T_C,Mode,Is_A,Is_uA\n';
-  logRecords.forEach(r => csv += `${r.T},${r.mode},${r.Is},${r.uA}\n`);
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'bandgap_data.csv'; a.click();
-};
-
-/* ---------- Status update ---------- */
-function updateStatus() {
-  const mode = burnerOn ? 'Heating' : 'Cooling';
-  const wiresCount = connections.length;
-  topStatus.textContent = `T=${T_current.toFixed(1)}°C • Mode:${mode} • Wires:${wiresCount} • Logs:${logRecords.length}`;
-}
-
-/* ---------- Initialization ---------- */
-initLoggingTargets(); updateStatus();
-
-/* ================
-   Helpful functions to tweak:
-   - Eg_true : at top (0.62 eV)
-   - loggingInterval (5 °C)
-   - T_target, tau
-   - A_prefactor to scale Is magnitude
-   ================ */
-
+/* Buttons */
+document.getElementById("placeContainerBtn").addEventListener("click",()=>createApp("Container","images/PIC0.png"));
+document.getElementById("pnBtn").addEventListener("click",()=>createApp("P-N Diode","https://flaviocopes.com/images/electronics-components-diodes/Screen_Shot_2020-12-06_at_11.54.39.png"));
+document.getElementById("batteryBtn").addEventListener("click",()=>createApp("Battery","images/battery.png"));
+document.getElementById("ammeterBtn").addEventListener("click",()=>createApp("Ammeter"));
+document.getElementById("voltmeterBtn").addEventListener("click",()=>createApp("Voltmeter"));
+document.getElementById("thermoBtn").addEventListener("click",()=>createApp("Thermometer","images/thermo.png"));
+document.getElementById("undoBtn").addEventListener("click",undoLast);
 </script>
-
 </body>
 </html>
