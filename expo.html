@@ -138,7 +138,7 @@ function createApp(name, imgUrl) {
     el.appendChild(img);
   }
 
-  // Add red (left) and blue (right) points
+  // Add connectors
   if (["Battery", "Ammeter", "Voltmeter", "Thermometer", "Experiment Complete"].includes(name)) {
     const leftDot = document.createElement("div");
     leftDot.className = "connector left";
@@ -147,7 +147,9 @@ function createApp(name, imgUrl) {
     el.appendChild(leftDot);
     el.appendChild(rightDot);
 
-    [leftDot, rightDot].forEach(dot => dot.addEventListener("click", () => handleConnectorClick(dot)));
+    [leftDot, rightDot].forEach(dot => 
+      dot.addEventListener("mousedown", (e) => handleConnectorClick(dot, e))
+    );
   }
 
   el.style.left = 100 + appIndex * 20 + "px";
@@ -164,7 +166,7 @@ function createApp(name, imgUrl) {
 function makeDraggable(el) {
   let offsetX, offsetY, isDown = false;
   el.addEventListener("mousedown", (e) => {
-    if (e.target.classList.contains("connector")) return; // avoid drag from connector
+    if (e.target.classList.contains("connector")) return;
     isDown = true;
     const rect = el.getBoundingClientRect();
     offsetX = e.clientX - rect.left;
@@ -176,7 +178,7 @@ function makeDraggable(el) {
     const wsRect = workspace.getBoundingClientRect();
     el.style.left = e.clientX - wsRect.left - offsetX + "px";
     el.style.top  = e.clientY - wsRect.top - offsetY + "px";
-    updateLines();
+    updateLines(); // keep wires attached
   });
   window.addEventListener("mouseup", () => {
     if (isDown) checkMerge(el);
@@ -216,41 +218,87 @@ function mergeApps(el1, el2, newName, newImg) {
 }
 
 /* --- Wire System --- */
-let firstConnector=null, connections=[];
-function handleConnectorClick(dot){
-  if(!firstConnector){firstConnector=dot;dot.style.outline="2px solid gold";}
-  else if(firstConnector!==dot){
-    drawConnection(firstConnector,dot);
-    firstConnector.style.outline="none";
-    firstConnector=null;
-  }else{
-    firstConnector.style.outline="none";
-    firstConnector=null;
-  }
-}
-function getCenter(el){
-  const r=el.getBoundingClientRect(),ws=workspace.getBoundingClientRect();
+let activePath = null;
+let pathPoints = [];
+let startConnector = null;
+let connections = [];
+
+function getConnectorPos(dot){
+  const r=dot.getBoundingClientRect(),ws=workspace.getBoundingClientRect();
   return {x:r.left-ws.left+r.width/2,y:r.top-ws.top+r.height/2};
 }
-function drawConnection(d1,d2){
-  const p1=getCenter(d1),p2=getCenter(d2);
-  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-  line.setAttribute("x1",p1.x);
-  line.setAttribute("y1",p1.y);
-  line.setAttribute("x2",p2.x);
-  line.setAttribute("y2",p2.y);
-  line.setAttribute("stroke","black");
-  line.setAttribute("stroke-width","2");
-  svg.appendChild(line);
-  connections.push({line,dot1:d1,dot2:d2});
+
+function handleConnectorClick(dot,e){
+  if(e.button!==0) return; // only left click
+
+  if(!activePath){
+    // Start new wire
+    startConnector = dot;
+    const pos = getConnectorPos(dot);
+    pathPoints = [pos];
+    activePath = document.createElementNS("http://www.w3.org/2000/svg","polyline");
+    activePath.setAttribute("fill","none");
+    activePath.setAttribute("stroke","black");
+    activePath.setAttribute("stroke-width","2");
+    svg.appendChild(activePath);
+    updateActivePath(pos);
+    window.addEventListener("mousemove", followCursor);
+    workspace.addEventListener("mousedown", addBend);
+  } else {
+    // Finalize connection
+    if(dot!==startConnector){
+      const pos = getConnectorPos(dot);
+      pathPoints.push(pos);
+      updateActivePath(pos);
+
+      connections.push({
+        line: activePath,
+        dot1: startConnector,
+        dot2: dot,
+        bends: [...pathPoints]
+      });
+
+      activePath = null;
+      pathPoints = [];
+      startConnector = null;
+      window.removeEventListener("mousemove", followCursor);
+      workspace.removeEventListener("mousedown", addBend);
+    }
+  }
 }
+
+function followCursor(e){
+  const wsRect=workspace.getBoundingClientRect();
+  const pos={x:e.clientX-wsRect.left,y:e.clientY-wsRect.top};
+  updateActivePath(pos);
+}
+
+function addBend(e){
+  if(e.button!==0) return;
+  if(!activePath) return;
+  const wsRect=workspace.getBoundingClientRect();
+  const pos={x:e.clientX-wsRect.left,y:e.clientY-wsRect.top};
+  const last=pathPoints[pathPoints.length-1];
+  const bend={x:pos.x,y:last.y};
+  pathPoints.push(bend);
+  pathPoints.push(pos);
+  updateActivePath(pos);
+}
+
+function updateActivePath(cursorPos){
+  if(!activePath) return;
+  const pts=[...pathPoints,cursorPos].map(p=>`${p.x},${p.y}`).join(" ");
+  activePath.setAttribute("points",pts);
+}
+
+/* Update lines with apparatus movement */
 function updateLines(){
-  connections.forEach(c=>{
-    const p1=getCenter(c.dot1),p2=getCenter(c.dot2);
-    c.line.setAttribute("x1",p1.x);
-    c.line.setAttribute("y1",p1.y);
-    c.line.setAttribute("x2",p2.x);
-    c.line.setAttribute("y2",p2.y);
+  connections.forEach(conn=>{
+    const p1=getConnectorPos(conn.dot1);
+    const p2=getConnectorPos(conn.dot2);
+    const bends=[p1,...conn.bends.slice(1,-1),p2];
+    const pts=bends.map(p=>`${p.x},${p.y}`).join(" ");
+    conn.line.setAttribute("points",pts);
   });
 }
 
@@ -269,5 +317,6 @@ document.getElementById("voltmeterBtn").addEventListener("click",()=>createApp("
 document.getElementById("thermoBtn").addEventListener("click",()=>createApp("Thermometer","images/thermo.png"));
 document.getElementById("undoBtn").addEventListener("click",undoLast);
 </script>
+
 </body>
 </html>
