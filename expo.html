@@ -379,71 +379,38 @@ const steps = [
 
 let currentStep = 0;
 
-// Right panel for navigation + undo buttons
 const rightPanel = document.createElement("aside");
 rightPanel.style = "background:#fff;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 20px rgba(0,0,0,0.05);max-height:100%;overflow-y:auto;align-items:center;justify-content:center;";
 
-// Step navigation buttons
-const nextStepBtn = document.createElement("button");
-nextStepBtn.className = "btn yellow";
-nextStepBtn.textContent = "Next Step";
 const backStepBtn = document.createElement("button");
 backStepBtn.className = "btn yellow";
 backStepBtn.textContent = "Back Step";
+
+const nextStepBtn = document.createElement("button");
+nextStepBtn.className = "btn yellow";
+nextStepBtn.textContent = "Next Step";
+
+const showGraphBtn = document.createElement("button");
+showGraphBtn.className = "btn green";
+showGraphBtn.textContent = "Show Readings / Graphs";
+showGraphBtn.addEventListener("click", () => {
+  window.location.href = "readings_graphs.html";
+});
+
 rightPanel.appendChild(backStepBtn);
 rightPanel.appendChild(nextStepBtn);
-
-// Undo buttons
-const undoBtn = document.createElement("button");
-undoBtn.className = "btn red";
-undoBtn.textContent = "Undo";
-undoBtn.addEventListener("click", undoLast);
-
-const resetWiresBtn = document.createElement("button");
-resetWiresBtn.className = "btn yellow";
-resetWiresBtn.textContent = "Undo Wires";
-resetWiresBtn.addEventListener("click", () => {
-  if(connections.length===0){
-    statusEl.textContent="No wires to remove!"; 
-    statusEl.style.color="red"; 
-    return; 
-  }
-  const lastConn = connections.pop();
-  svg.removeChild(lastConn.line);
-  statusEl.textContent=`Removed connection between ${lastConn.dot1.parentElement.dataset.name} → ${lastConn.dot2.parentElement.dataset.name}`;
-  statusEl.style.color="orange";
-});
-
-rightPanel.appendChild(undoBtn);
-rightPanel.appendChild(resetWiresBtn);
-
-// Append right panel to main container
+rightPanel.appendChild(showGraphBtn);
 document.querySelector(".main-container").appendChild(rightPanel);
 
-// Step update functions
+// step update
 const stepLeftInfo = document.getElementById("stepInfo");
-stepLeftInfo.textContent = steps[currentStep];
 function updateStep(stepIndex){
   stepLeftInfo.textContent = steps[stepIndex];
-  statusEl.textContent = `Now: ${steps[stepIndex]}`;
-  statusEl.style.color = "blue";
+  document.getElementById("workspaceStatus").textContent = `Now: ${steps[stepIndex]}`;
 }
+nextStepBtn.addEventListener("click",()=>{ if(currentStep<steps.length-1){currentStep++;updateStep(currentStep);} });
+backStepBtn.addEventListener("click",()=>{ if(currentStep>0){currentStep--;updateStep(currentStep);} });
 
-nextStepBtn.addEventListener("click", () => {
-  if(currentStep < steps.length - 1){
-    currentStep++;
-    updateStep(currentStep);
-  } else {
-    statusEl.textContent = "All steps completed!";
-    statusEl.style.color = "green";
-  }
-});
-backStepBtn.addEventListener("click", () => {
-  if(currentStep > 0){
-    currentStep--;
-    updateStep(currentStep);
-  }
-});
 </script>
 
 </body>
