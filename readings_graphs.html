@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heating & Cooling Readings</title>
+<style>
+:root {
+  --primary:#4b1d7f;
+  --accent:#ff9f1c;
+  --green:#2ca58d;
+  --blue:#118ab2;
+  --yellow:#f0b429;
+  --bg:#f5f7fd;
+  --text:#0f1724;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,Arial,sans-serif}
+body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;padding:20px;}
+h1{color:var(--primary);margin-bottom:20px;}
+.table-container{background:#fff;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.05);padding:20px;width:90%;max-width:700px;}
+table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+th,td{border:1px solid #ccc;padding:10px;text-align:center;}
+th{background:var(--primary);color:#fff;}
+.btn{padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin:5px;}
+.btn.green{background:#dff6e8;color:var(--green);}
+.btn.blue{background:#d1eefb;color:var(--blue);}
+.btn.yellow{background:#fff1d1;color:var(--yellow);}
+.btn:hover{transform:translateY(-2px);}
+.status{margin-top:10px;color:var(--primary);font-weight:600;}
+</style>
+</head>
+<body>
+<h1>Heating and Cooling Readings</h1>
+
+<div class="table-container">
+  <table id="readingTable">
+    <thead>
+      <tr>
+        <th>Temperature (°C)</th>
+        <th>Heating Voltage (V)</th>
+        <th>Heating Current (A)</th>
+        <th>Cooling Voltage (V)</th>
+        <th>Cooling Current (A)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div style="text-align:center;">
+    <button class="btn green" id="startHeating">Start Heating Readings</button>
+    <button class="btn blue" id="startCooling">Start Cooling Readings</button>
+    <button class="btn yellow" id="resetBtn">Reset</button>
+  </div>
+
+  <div class="status" id="statusText"></div>
+</div>
+
+<script>
+const temps = [25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
+const tbody = document.querySelector("#readingTable tbody");
+const statusText = document.getElementById("statusText");
+
+let heatIndex = 0, coolIndex = temps.length - 1;
+let heatingInterval = null, coolingInterval = null;
+
+// Helper to generate mock readings (you can link real values if needed)
+function randomVoltage() { return (0.6 + Math.random() * 0.3).toFixed(2); }
+function randomCurrent() { return (0.3 + Math.random() * 0.2).toFixed(2); }
+
+function addRow(temp, heatV="", heatA="", coolV="", coolA="") {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${temp}</td><td>${heatV}</td><td>${heatA}</td><td>${coolV}</td><td>${coolA}</td>`;
+  tbody.appendChild(tr);
+}
+
+document.getElementById("startHeating").addEventListener("click",()=>{
+  tbody.innerHTML="";
+  heatIndex=0;
+  statusText.textContent="Recording heating readings...";
+  clearInterval(coolingInterval);
+  heatingInterval = setInterval(()=>{
+    if(heatIndex < temps.length){
+      addRow(temps[heatIndex], randomVoltage(), randomCurrent(), "-", "-");
+      heatIndex++;
+    } else {
+      clearInterval(heatingInterval);
+      statusText.textContent="Heating readings completed!";
+    }
+  },800);
+});
+
+document.getElementById("startCooling").addEventListener("click",()=>{
+  if(tbody.rows.length===0){
+    statusText.textContent="Please complete heating first.";
+    return;
+  }
+  coolIndex = temps.length - 1;
+  statusText.textContent="Recording cooling readings...";
+  clearInterval(heatingInterval);
+  coolingInterval = setInterval(()=>{
+    if(coolIndex >= 0){
+      const row = tbody.rows[coolIndex];
+      row.cells[3].textContent = randomVoltage();
+      row.cells[4].textContent = randomCurrent();
+      coolIndex--;
+    } else {
+      clearInterval(coolingInterval);
+      statusText.textContent="Cooling readings completed!";
+    }
+  },800);
+});
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  tbody.innerHTML="";
+  clearInterval(heatingInterval);
+  clearInterval(coolingInterval);
+  statusText.textContent="Reset complete.";
+});
+</script>
+</body>
+</html>
