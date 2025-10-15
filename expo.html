@@ -78,6 +78,8 @@ header h1{color:var(--primary);font-size:22px;font-weight:700;}
       <button class="btn blue" id="thermoBtn">Thermometer</button>
       <button class="btn yellow" id="connectBtn">Connect</button>
       <button class="btn red" id="undoBtn">Undo</button>
+      <!-- NEW UNDO WIRE BUTTON -->
+      <button class="btn red" id="undoWireBtn">Undo Wire</button>
     </div>
   </aside>
 
@@ -302,11 +304,21 @@ function updateLines(){
   });
 }
 
-/* Undo last */
+/* Undo last apparatus */
 function undoLast(){
   const last=history.pop();if(!last)return;
   if(last.type==="add"){const el=apps[last.id];if(el)workspace.removeChild(el);delete apps[last.id];}
 }
+
+/* Undo last wire */
+function undoLastWire(){
+  if (connections.length === 0) return;
+  const lastConn = connections.pop();
+  if (lastConn && lastConn.line) {
+    svg.removeChild(lastConn.line);
+  }
+}
+
 
 /* Buttons */
 document.getElementById("placeContainerBtn").addEventListener("click",()=>createApp("Container","images/PIC0.png"));
@@ -316,6 +328,32 @@ document.getElementById("ammeterBtn").addEventListener("click",()=>createApp("Am
 document.getElementById("voltmeterBtn").addEventListener("click",()=>createApp("Voltmeter"));
 document.getElementById("thermoBtn").addEventListener("click",()=>createApp("Thermometer","images/thermo.png"));
 document.getElementById("undoBtn").addEventListener("click",undoLast);
+document.getElementById("undoWireBtn").addEventListener("click",undoLastWire);
+
+// Add connectors
+if (["Battery", "Ammeter", "Voltmeter", "Thermometer", "Experiment Complete"].includes(name)) {
+  const leftDot = document.createElement("div");
+  const rightDot = document.createElement("div");
+
+  // Special case for Experiment Complete (thermometer in beaker)
+  if (name === "Experiment Complete") {
+    leftDot.className = "connector left";
+    leftDot.style.background = "var(--blue)"; // left = blue
+    rightDot.className = "connector right";
+    rightDot.style.background = "var(--red)"; // right = red
+  } else {
+    leftDot.className = "connector left";   // default left = red
+    rightDot.className = "connector right"; // default right = blue
+  }
+
+  el.appendChild(leftDot);
+  el.appendChild(rightDot);
+
+  [leftDot, rightDot].forEach(dot =>
+    dot.addEventListener("mousedown", (e) => handleConnectorClick(dot, e))
+  );
+}
+
 </script>
 
 </body>
