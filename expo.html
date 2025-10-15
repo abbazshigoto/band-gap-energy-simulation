@@ -102,349 +102,81 @@ header h1{color:var(--primary);font-size:22px;font-weight:700;}
       <button class="btn blue" id="voltmeterBtn">Voltmeter</button>
       <button class="btn red" id="labBurnerBtn">Lab Burner</button>
       <button class="btn green" id="startHeatBtn">ON burner</button>
-       <button class="btn blue" id="startCoolBtn">OFF burner</button>
+      <button class="btn blue" id="startCoolBtn">OFF burner</button>
       <button class="btn red" id="undoBtn">Undo</button>
-      <button class="btn yellow" id="resetWiresBtn">Undo Wires</button>>
+      <button class="btn yellow" id="resetWiresBtn">Undo Wires</button>
     </div>
   </aside>
 
   <main class="center">
-
     <div class="workspace" id="workspace">
       <svg id="connections" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></svg>
     </div>
-    <div id="workspaceStatus">Voltage: 5 V | Current: 0.5 A | Temperature: 25 °C</div>
+    <div id="workspaceStatus">Voltage: 5 V | Current: 0.5 A | Temperature: 25 °C | Resistance: 10 Ω</div>
   </main>
 </div>
-  
 
 <script>
-const workspace = document.getElementById("workspace");
+// ---------------------------
+// Backend Integration JS
+// ---------------------------
 const statusEl = document.getElementById("workspaceStatus");
-const svg = document.getElementById("connections");
-let appIndex = 0;
-let apps = {};
-let history = [];
-let connections = [];
-let firstConnector = null;
-let temperature = 25;
-let heatingInterval = null;
-let coolingInterval = null;
-let burnerApp = null;
 
-const validConnections = {
-  "Battery": ["Ammeter","Experiment Complete"],
-  "Ammeter": ["Experiment Complete"],
-  "Voltmeter": ["Experiment Complete"],
-  "Experiment Complete": ["Battery","Ammeter","Voltmeter"]
-};
+// Fetch dynamic readings every 2 seconds
+async function updateReadings() {
+    try {
+        const res = await fetch('/api/readings');
+        const data = await res.json();
+        statusEl.textContent = `Voltage: ${data.voltage} V | Current: ${data.current} A | Temperature: ${data.temperature} °C | Resistance: ${data.resistance} Ω`;
+    } catch(err) {
+        console.error("Error fetching readings:", err);
+    }
+}
+setInterval(updateReadings, 2000);
 
-const requiredConnectionsPolarity = [
-  ["Battery", "Ammeter", "right", "left"],
-  ["Ammeter", "P-N Diode", "right", "left"],
-  ["P-N Diode", "Voltmeter", "right", "left"]
-];
-
-
-
-// Apparatus creation
-function createApp(name,imgUrl,withDisplay=false){
-  const id = `app-${++appIndex}`;
-  const el = document.createElement("div");
-  el.className="apparatus";
-  el.dataset.id=id;
-  el.dataset.name=name;
-
-  if(withDisplay){
-    const label = document.createElement("div");
-    label.textContent = name;
-    label.style.fontSize="12px"; label.style.fontWeight="700";
-    label.style.color="var(--primary)"; label.style.marginBottom="4px"; label.style.textAlign="center";
-
-    const box = document.createElement("div");
-    box.className="display-box"; box.style.width="60px"; box.style.height="30px"; box.style.background="#f9fafb";
-    box.style.border="2px solid var(--primary)"; box.style.borderRadius="6px"; box.style.display="flex";
-    box.style.alignItems="center"; box.style.justifyContent="center"; box.style.fontWeight="600"; box.style.color="var(--text)";
-    box.textContent = name==="Voltmeter"?"5.0":"0";
-
-    const img = document.createElement("img"); img.src=imgUrl; img.alt=name;
-
-    el.appendChild(label); el.appendChild(box); el.appendChild(img);
-  } else {
-    const img = document.createElement("img"); img.src=imgUrl; img.alt=name; el.appendChild(img);
-  }
-
-  if(["Battery","Ammeter","Voltmeter","Thermometer","Experiment Complete"].includes(name)){
-    const leftDot = document.createElement("div"); leftDot.className="connector left";
-    const rightDot = document.createElement("div"); rightDot.className="connector right";
-    el.appendChild(leftDot); el.appendChild(rightDot);
-    [leftDot,rightDot].forEach(dot=>dot.addEventListener("mousedown", handleConnectorClick));
-  }
-
-  el.style.left = 100 + appIndex*20 + "px";
-  el.style.top = 100 + appIndex*20 + "px";
-  makeDraggable(el);
-  workspace.appendChild(el);
-  apps[id]=el; history.push({type:"add",id,el});
-  return el;
+// Calculate resistance manually
+async function calculateResistance(voltage, current) {
+    try {
+        const res = await fetch('/api/calculate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({voltage, current})
+        });
+        const data = await res.json();
+        alert(`Resistance: ${data.resistance} Ω`);
+    } catch(err) {
+        console.error(err);
+    }
 }
 
-// Draggable
-function makeDraggable(el){
-  let offsetX,offsetY,isDown=false;
-  el.addEventListener("mousedown",(e)=>{
-    if(e.target.classList.contains("connector")) return;
-    isDown=true;
-    const rect=el.getBoundingClientRect();
-    offsetX=e.clientX-rect.left; offsetY=e.clientY-rect.top;
-    el.style.zIndex=1000;
-  });
-  window.addEventListener("mousemove",(e)=>{
-    if(!isDown) return;
-    const wsRect=workspace.getBoundingClientRect();
-    el.style.left=e.clientX-wsRect.left-offsetX+"px";
-    el.style.top=e.clientY-wsRect.top-offsetY+"px";
-    updateLines();
-  });
-  window.addEventListener("mouseup",()=>{
-    if(isDown) checkMerge(el);
-    isDown=false;
-    el.style.zIndex=1;
-  });
+// Example: Plot graph
+async function plotGraph() {
+    try {
+        const temperature = [25, 40, 60, 80, 100];
+        const voltage = [5, 5.5, 6, 6.3, 6.5];
+        const res = await fetch('/api/plot', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({temperature, voltage})
+        });
+        const data = await res.json();
+        const img = document.createElement('img');
+        img.src = data.graph_url;
+        img.style.width = '400px';
+        img.style.marginTop = '10px';
+        document.body.appendChild(img);
+    } catch(err) {
+        console.error(err);
+    }
 }
 
-function isOverlapping(el1,el2){
-  const r1=el1.getBoundingClientRect(),r2=el2.getBoundingClientRect();
-  return !(r1.top>r2.bottom||r1.bottom<r2.top||r1.left>r2.right||r1.right<r2.left);
-}
+// Optional: Bind to a button for testing
+const testGraphBtn = document.createElement('button');
+testGraphBtn.className = 'btn green';
+testGraphBtn.textContent = 'Show Graph';
+testGraphBtn.addEventListener('click', plotGraph);
+document.querySelector('.left-panel .controls').appendChild(testGraphBtn);
 
-function checkMerge(el){
-  Object.values(apps).forEach(other=>{
-    if(other===el) return;
-    const n1=el.dataset.name,n2=other.dataset.name;
-    if((n1==="Container"&&n2==="P-N Diode")||(n1==="P-N Diode"&&n2==="Container"))
-      mergeApps(el,other,"Setup Complete","images/pic1.png");
-    if((n1==="Setup Complete"&&n2==="Thermometer")||(n1==="Thermometer"&&n2==="Setup Complete"))
-      mergeApps(el,other,"Experiment Complete","images/therinbeak.png");
-  });
-}
-
-function mergeApps(el1,el2,newName,newImg){
-  workspace.removeChild(el1); workspace.removeChild(el2);
-  delete apps[el1.dataset.id]; delete apps[el2.dataset.id];
-  createApp(newName,newImg);
-  statusEl.textContent=`${newName} created!`; statusEl.style.color="green";
-}
-
-/* --- Flexible Wire System --- */
-let activePath = null;
-let pathPoints = [];
-let startConnector = null;
-
-function getConnectorPos(dot){
-  const r = dot.getBoundingClientRect(), ws = workspace.getBoundingClientRect();
-  return {x: r.left - ws.left + r.width/2, y: r.top - ws.top + r.height/2};
-}
-
-function handleConnectorClick(e){
-  if(e.button!==0) return;
-  const dot = e.target;
-  if(!activePath){
-    startConnector = dot;
-    pathPoints = [getConnectorPos(dot)];
-    activePath = document.createElementNS("http://www.w3.org/2000/svg","polyline");
-    activePath.setAttribute("fill","none");
-    activePath.setAttribute("stroke","black");
-    activePath.setAttribute("stroke-width","2");
-    svg.appendChild(activePath);
-    window.addEventListener("mousemove", followCursor);
-    workspace.addEventListener("mousedown", addBend);
-  } else if(dot!==startConnector){
-    pathPoints.push(getConnectorPos(dot));
-    updateActivePath(getConnectorPos(dot));
-    connections.push({line: activePath, dot1: startConnector, dot2: dot, bends: [...pathPoints]});
-    activePath = null; pathPoints=[]; startConnector=null;
-    window.removeEventListener("mousemove", followCursor);
-    workspace.removeEventListener("mousedown", addBend);
-  }
-}
-
-function followCursor(e){
-  const wsRect = workspace.getBoundingClientRect();
-  updateActivePath({x:e.clientX - wsRect.left, y:e.clientY - wsRect.top});
-}
-
-function addBend(e){
-  if(e.button!==0 || !activePath) return;
-  const wsRect = workspace.getBoundingClientRect();
-  const pos = {x:e.clientX - wsRect.left, y:e.clientY - wsRect.top};
-  const last = pathPoints[pathPoints.length-1];
-  pathPoints.push({x: pos.x, y:last.y});
-  pathPoints.push(pos);
-  updateActivePath(pos);
-}
-
-function updateActivePath(cursorPos){
-  if(!activePath) return;
-  const pts = [...pathPoints,cursorPos].map(p=>`${p.x},${p.y}`).join(" ");
-  activePath.setAttribute("points",pts);
-}
-
-function updateLines(){
-  connections.forEach(c=>{
-    const p1 = getConnectorPos(c.dot1), p2 = getConnectorPos(c.dot2);
-    const bends = [p1,...c.bends.slice(1,-1),p2];
-    c.line.setAttribute("points", bends.map(p=>`${p.x},${p.y}`).join(" "));
-  });
-}
-
-// Undo last
-function undoLast(){ const last=history.pop(); if(!last) return; if(last.type==="add"){ const el=apps[last.id]; if(el) workspace.removeChild(el); delete apps[last.id]; } }
-
-// Buttons
-document.getElementById("placeContainerBtn").addEventListener("click",()=>createApp("Container","images/PIC0.png"));
-document.getElementById("pnBtn").addEventListener("click",()=>createApp("P-N Diode","https://flaviocopes.com/images/electronics-components-diodes/Screen_Shot_2020-12-06_at_11.54.39.png"));
-document.getElementById("batteryBtn").addEventListener("click",()=>createApp("Battery","images/battery.png"));
-document.getElementById("ammeterBtn").addEventListener("click",()=>createApp("Ammeter","images/ammeter.png",true));
-document.getElementById("voltmeterBtn").addEventListener("click",()=>createApp("Voltmeter","images/voltmeter.png",true));
-document.getElementById("thermoBtn").addEventListener("click",()=>createApp("Thermometer","images/thermo.png"));
-document.getElementById("undoBtn").addEventListener("click",undoLast);
-document.getElementById("resetWiresBtn").addEventListener("click", () => {
-  if(connections.length===0){ statusEl.textContent="No wires to remove!"; statusEl.style.color="red"; return; }
-  const lastConn = connections.pop();
-  svg.removeChild(lastConn.line);
-  statusEl.textContent=`Removed connection between ${lastConn.dot1.parentElement.dataset.name} → ${lastConn.dot2.parentElement.dataset.name}`;
-  statusEl.style.color="orange";
-});
-
-// Lab Burner
-document.getElementById("labBurnerBtn").addEventListener("click", () => {
-  if(!burnerApp){
-    const id = `app-${++appIndex}`;
-    const el = document.createElement("div"); el.className="apparatus lab-burner"; el.dataset.id=id; el.dataset.name="Lab Burner";
-    const flame = document.createElement("div"); flame.className="flame"; el.appendChild(flame); el.flame=flame;
-    el.style.left = 150 + appIndex*20 + "px"; el.style.top = 150 + appIndex*20 + "px";
-    makeDraggable(el); workspace.appendChild(el); apps[id]=el; history.push({type:"add",id,el}); burnerApp=el;
-    statusEl.textContent="Lab Burner placed!"; statusEl.style.color="green";
-  }
-});
-
-// Heating / Cooling (no wire check)
-function startHeating() {
-    clearInterval(coolingInterval);
-    if (burnerApp) burnerApp.flame.style.display = "block";
-    heatingInterval = setInterval(() => {
-        if (temperature < 100) {
-            temperature += 5;
-            statusEl.textContent = `Heating... Temperature: ${temperature} °C`;
-        } else {
-            clearInterval(heatingInterval);
-            statusEl.textContent = "Maximum temperature reached: 100°C";
-        }
-    }, 1000);
-}
-
-function startCooling() {
-    clearInterval(heatingInterval);
-    if (burnerApp) burnerApp.flame.style.display = "none";
-    coolingInterval = setInterval(() => {
-        if (temperature > 25) {
-            temperature -= 5;
-            statusEl.textContent = `Cooling... Temperature: ${temperature} °C`;
-        } else {
-            clearInterval(coolingInterval);
-            statusEl.textContent = "Room temperature reached: 25°C";
-        }
-    }, 1000);
-}
-
-document.getElementById("startHeatBtn").addEventListener("click", startHeating);
-document.getElementById("startCoolBtn").addEventListener("click", startCooling);
-
-
-// --- Steps System ---
-const steps = [
-  "Step 1: Place beaker and then insert diode by dragging the image on beaker",
-  "Step 2: now insert the thermometer by dragging it in the beaker",
-  "Step 3: now fix voltmeter , ammeter and battery",
-  "Step 4: connect positve terminal (red) of voltmeter and ammeter",
-  "Step 5: connect negative terminal (blue) of ammeter to negative terminal (blue) of diode ",
-  "Step 6: connect negative terminal (blue) of battery to positive terminal (red) of diode",
-  "Step 7: connect negative terminal (blue) of volmeter to positive terminal (red) of battery",
-  "Step 8: put a burner below beaker and turn on the burner ",
-  "Step 9: now we will take reading of heating and cooling"
-
-];
-
-
-let currentStep = 0;
-
-// Right panel for navigation + undo buttons
-const rightPanel = document.createElement("aside");
-rightPanel.style = "background:#fff;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 20px rgba(0,0,0,0.05);max-height:100%;overflow-y:auto;align-items:center;justify-content:center;";
-
-// Step navigation buttons
-const nextStepBtn = document.createElement("button");
-nextStepBtn.className = "btn yellow";
-nextStepBtn.textContent = "Next Step";
-const backStepBtn = document.createElement("button");
-backStepBtn.className = "btn yellow";
-backStepBtn.textContent = "Back Step";
-rightPanel.appendChild(backStepBtn);
-rightPanel.appendChild(nextStepBtn);
-
-// Undo buttons
-const undoBtn = document.createElement("button");
-undoBtn.className = "btn red";
-undoBtn.textContent = "Undo";
-undoBtn.addEventListener("click", undoLast);
-
-const resetWiresBtn = document.createElement("button");
-resetWiresBtn.className = "btn yellow";
-resetWiresBtn.textContent = "Undo Wires";
-resetWiresBtn.addEventListener("click", () => {
-  if(connections.length===0){
-    statusEl.textContent="No wires to remove!"; 
-    statusEl.style.color="red"; 
-    return; 
-  }
-  const lastConn = connections.pop();
-  svg.removeChild(lastConn.line);
-  statusEl.textContent=`Removed connection between ${lastConn.dot1.parentElement.dataset.name} → ${lastConn.dot2.parentElement.dataset.name}`;
-  statusEl.style.color="orange";
-});
-
-rightPanel.appendChild(undoBtn);
-rightPanel.appendChild(resetWiresBtn);
-
-// Append right panel to main container
-document.querySelector(".main-container").appendChild(rightPanel);
-
-// Step update functions
-const stepLeftInfo = document.getElementById("stepInfo");
-stepLeftInfo.textContent = steps[currentStep];
-function updateStep(stepIndex){
-  stepLeftInfo.textContent = steps[stepIndex];
-  statusEl.textContent = `Now: ${steps[stepIndex]}`;
-  statusEl.style.color = "blue";
-}
-
-nextStepBtn.addEventListener("click", () => {
-  if(currentStep < steps.length - 1){
-    currentStep++;
-    updateStep(currentStep);
-  } else {
-    statusEl.textContent = "All steps completed!";
-    statusEl.style.color = "green";
-  }
-});
-backStepBtn.addEventListener("click", () => {
-  if(currentStep > 0){
-    currentStep--;
-    updateStep(currentStep);
-  }
-});
 </script>
-
 </body>
 </html>
