@@ -177,6 +177,202 @@ testGraphBtn.textContent = 'Show Graph';
 testGraphBtn.addEventListener('click', plotGraph);
 document.querySelector('.left-panel .controls').appendChild(testGraphBtn);
 
+<<<<<<< HEAD
+=======
+function checkMerge(el){
+  Object.values(apps).forEach(other=>{
+    if(other===el) return;
+    const n1=el.dataset.name,n2=other.dataset.name;
+    if((n1==="Container"&&n2==="P-N Diode")||(n1==="P-N Diode"&&n2==="Container"))
+      mergeApps(el,other,"Setup Complete","images/pic1.png");
+    if((n1==="Setup Complete"&&n2==="Thermometer")||(n1==="Thermometer"&&n2==="Setup Complete"))
+      mergeApps(el,other,"Experiment Complete","images/therinbeak.png");
+  });
+}
+
+function mergeApps(el1,el2,newName,newImg){
+  workspace.removeChild(el1); workspace.removeChild(el2);
+  delete apps[el1.dataset.id]; delete apps[el2.dataset.id];
+  createApp(newName,newImg);
+  statusEl.textContent=`${newName} created!`; statusEl.style.color="green";
+}
+
+/* --- Flexible Wire System --- */
+let activePath = null;
+let pathPoints = [];
+let startConnector = null;
+
+function getConnectorPos(dot){
+  const r = dot.getBoundingClientRect(), ws = workspace.getBoundingClientRect();
+  return {x: r.left - ws.left + r.width/2, y: r.top - ws.top + r.height/2};
+}
+
+function handleConnectorClick(e){
+  if(e.button!==0) return;
+  const dot = e.target;
+  if(!activePath){
+    startConnector = dot;
+    pathPoints = [getConnectorPos(dot)];
+    activePath = document.createElementNS("http://www.w3.org/2000/svg","polyline");
+    activePath.setAttribute("fill","none");
+    activePath.setAttribute("stroke","black");
+    activePath.setAttribute("stroke-width","2");
+    svg.appendChild(activePath);
+    window.addEventListener("mousemove", followCursor);
+    workspace.addEventListener("mousedown", addBend);
+  } else if(dot!==startConnector){
+    pathPoints.push(getConnectorPos(dot));
+    updateActivePath(getConnectorPos(dot));
+    connections.push({line: activePath, dot1: startConnector, dot2: dot, bends: [...pathPoints]});
+    activePath = null; pathPoints=[]; startConnector=null;
+    window.removeEventListener("mousemove", followCursor);
+    workspace.removeEventListener("mousedown", addBend);
+  }
+}
+
+function followCursor(e){
+  const wsRect = workspace.getBoundingClientRect();
+  updateActivePath({x:e.clientX - wsRect.left, y:e.clientY - wsRect.top});
+}
+
+function addBend(e){
+  if(e.button!==0 || !activePath) return;
+  const wsRect = workspace.getBoundingClientRect();
+  const pos = {x:e.clientX - wsRect.left, y:e.clientY - wsRect.top};
+  const last = pathPoints[pathPoints.length-1];
+  pathPoints.push({x: pos.x, y:last.y});
+  pathPoints.push(pos);
+  updateActivePath(pos);
+}
+
+function updateActivePath(cursorPos){
+  if(!activePath) return;
+  const pts = [...pathPoints,cursorPos].map(p=>`${p.x},${p.y}`).join(" ");
+  activePath.setAttribute("points",pts);
+}
+
+function updateLines(){
+  connections.forEach(c=>{
+    const p1 = getConnectorPos(c.dot1), p2 = getConnectorPos(c.dot2);
+    const bends = [p1,...c.bends.slice(1,-1),p2];
+    c.line.setAttribute("points", bends.map(p=>`${p.x},${p.y}`).join(" "));
+  });
+}
+
+// Undo last
+function undoLast(){ const last=history.pop(); if(!last) return; if(last.type==="add"){ const el=apps[last.id]; if(el) workspace.removeChild(el); delete apps[last.id]; } }
+
+// Buttons
+document.getElementById("placeContainerBtn").addEventListener("click",()=>createApp("Container","images/PIC0.png"));
+document.getElementById("pnBtn").addEventListener("click",()=>createApp("P-N Diode","https://flaviocopes.com/images/electronics-components-diodes/Screen_Shot_2020-12-06_at_11.54.39.png"));
+document.getElementById("batteryBtn").addEventListener("click",()=>createApp("Battery","images/battery.png"));
+document.getElementById("ammeterBtn").addEventListener("click",()=>createApp("Ammeter","images/ammeter.png",true));
+document.getElementById("voltmeterBtn").addEventListener("click",()=>createApp("Voltmeter","images/voltmeter.png",true));
+document.getElementById("thermoBtn").addEventListener("click",()=>createApp("Thermometer","images/thermo.png"));
+document.getElementById("undoBtn").addEventListener("click",undoLast);
+document.getElementById("resetWiresBtn").addEventListener("click", () => {
+  if(connections.length===0){ statusEl.textContent="No wires to remove!"; statusEl.style.color="red"; return; }
+  const lastConn = connections.pop();
+  svg.removeChild(lastConn.line);
+  statusEl.textContent=`Removed connection between ${lastConn.dot1.parentElement.dataset.name} → ${lastConn.dot2.parentElement.dataset.name}`;
+  statusEl.style.color="orange";
+});
+
+// Lab Burner
+document.getElementById("labBurnerBtn").addEventListener("click", () => {
+  if(!burnerApp){
+    const id = `app-${++appIndex}`;
+    const el = document.createElement("div"); el.className="apparatus lab-burner"; el.dataset.id=id; el.dataset.name="Lab Burner";
+    const flame = document.createElement("div"); flame.className="flame"; el.appendChild(flame); el.flame=flame;
+    el.style.left = 150 + appIndex*20 + "px"; el.style.top = 150 + appIndex*20 + "px";
+    makeDraggable(el); workspace.appendChild(el); apps[id]=el; history.push({type:"add",id,el}); burnerApp=el;
+    statusEl.textContent="Lab Burner placed!"; statusEl.style.color="green";
+  }
+});
+
+// Heating / Cooling (no wire check)
+function startHeating() {
+    clearInterval(coolingInterval);
+    if (burnerApp) burnerApp.flame.style.display = "block";
+    heatingInterval = setInterval(() => {
+        if (temperature < 100) {
+            temperature += 5;
+            statusEl.textContent = `Heating... Temperature: ${temperature} °C`;
+        } else {
+            clearInterval(heatingInterval);
+            statusEl.textContent = "Maximum temperature reached: 100°C";
+        }
+    }, 1000);
+}
+
+function startCooling() {
+    clearInterval(heatingInterval);
+    if (burnerApp) burnerApp.flame.style.display = "none";
+    coolingInterval = setInterval(() => {
+        if (temperature > 25) {
+            temperature -= 5;
+            statusEl.textContent = `Cooling... Temperature: ${temperature} °C`;
+        } else {
+            clearInterval(coolingInterval);
+            statusEl.textContent = "Room temperature reached: 25°C";
+        }
+    }, 1000);
+}
+
+document.getElementById("startHeatBtn").addEventListener("click", startHeating);
+document.getElementById("startCoolBtn").addEventListener("click", startCooling);
+
+
+// --- Steps System ---
+const steps = [
+  "Step 1: Place beaker and then insert diode by dragging the image on beaker",
+  "Step 2: now insert the thermometer by dragging it in the beaker",
+  "Step 3: now fix voltmeter , ammeter and battery",
+  "Step 4: connect positve terminal (red) of voltmeter and ammeter",
+  "Step 5: connect negative terminal (blue) of ammeter to negative terminal (blue) of diode ",
+  "Step 6: connect negative terminal (blue) of battery to positive terminal (red) of diode",
+  "Step 7: connect negative terminal (blue) of volmeter to positive terminal (red) of battery",
+  "Step 8: put a burner below beaker and turn on the burner ",
+  "Step 9: now we will take reading of heating and cooling"
+
+];
+
+
+let currentStep = 0;
+
+const rightPanel = document.createElement("aside");
+rightPanel.style = "background:#fff;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 20px rgba(0,0,0,0.05);max-height:100%;overflow-y:auto;align-items:center;justify-content:center;";
+
+const backStepBtn = document.createElement("button");
+backStepBtn.className = "btn yellow";
+backStepBtn.textContent = "Back Step";
+
+const nextStepBtn = document.createElement("button");
+nextStepBtn.className = "btn yellow";
+nextStepBtn.textContent = "Next Step";
+
+const showGraphBtn = document.createElement("button");
+showGraphBtn.className = "btn green";
+showGraphBtn.textContent = "Show Readings / Graphs";
+showGraphBtn.addEventListener("click", () => {
+  window.location.href = "readings_graphs.html";
+});
+
+rightPanel.appendChild(backStepBtn);
+rightPanel.appendChild(nextStepBtn);
+rightPanel.appendChild(showGraphBtn);
+document.querySelector(".main-container").appendChild(rightPanel);
+
+// step update
+const stepLeftInfo = document.getElementById("stepInfo");
+function updateStep(stepIndex){
+  stepLeftInfo.textContent = steps[stepIndex];
+  document.getElementById("workspaceStatus").textContent = `Now: ${steps[stepIndex]}`;
+}
+nextStepBtn.addEventListener("click",()=>{ if(currentStep<steps.length-1){currentStep++;updateStep(currentStep);} });
+backStepBtn.addEventListener("click",()=>{ if(currentStep>0){currentStep--;updateStep(currentStep);} });
+
+>>>>>>> origin/main
 </script>
 </body>
 </html>
