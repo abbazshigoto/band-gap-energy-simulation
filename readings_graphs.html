@@ -1,121 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Heating & Cooling Readings</title>
-<style>
-:root {
-  --primary:#4b1d7f;
-  --accent:#ff9f1c;
-  --green:#2ca58d;
-  --blue:#118ab2;
-  --yellow:#f0b429;
-  --bg:#f5f7fd;
-  --text:#0f1724;
-}
-*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,Arial,sans-serif}
-body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;padding:20px;}
-h1{color:var(--primary);margin-bottom:20px;}
-.table-container{background:#fff;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.05);padding:20px;width:90%;max-width:700px;}
-table{width:100%;border-collapse:collapse;margin-bottom:20px;}
-th,td{border:1px solid #ccc;padding:10px;text-align:center;}
-th{background:var(--primary);color:#fff;}
-.btn{padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin:5px;}
-.btn.green{background:#dff6e8;color:var(--green);}
-.btn.blue{background:#d1eefb;color:var(--blue);}
-.btn.yellow{background:#fff1d1;color:var(--yellow);}
-.btn:hover{transform:translateY(-2px);}
-.status{margin-top:10px;color:var(--primary);font-weight:600;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Germanium Band Gap Table & Graph</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    table {
+      background-color: #fff;
+    }
+    th, td {
+      text-align: center;
+      vertical-align: middle;
+    }
+    canvas {
+      background-color: #fff;
+      margin-top: 30px;
+    }
+    .formula-box {
+      margin-top: 30px;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .result {
+      margin-top: 10px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #4b1d7f;
+    }
+  </style>
+  <!-- MathJax for displaying formulas -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
 </head>
 <body>
-<h1>Heating and Cooling Readings</h1>
+  <div class="container">
+    <h2 class="mb-4 text-center">Band Gap Energy Data for Germanium</h2>
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-hover" id="bandGapTable">
+        <thead class="table-dark">
+          <tr>
+            <th>Sl. No</th>
+            <th>T (°C)</th>
+            <th>T (K)</th>
+            <th>1/T (K⁻¹)</th>
+            <th>I<sub>s</sub> (µA)</th>
+            <th>I<sub>s</sub> (A)</th>
+            <th>Log₁₀(I<sub>s</sub>)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>25</td><td></td><td></td><td>3.93</td><td></td><td></td></tr>
+          <tr><td>2</td><td>30</td><td></td><td></td><td>6.18</td><td></td><td></td></tr>
+          <tr><td>3</td><td>35</td><td></td><td></td><td>9.56</td><td></td><td></td></tr>
+          <tr><td>4</td><td>40</td><td></td><td></td><td>14.5</td><td></td><td></td></tr>
+          <tr><td>5</td><td>45</td><td></td><td></td><td>21.9</td><td></td><td></td></tr>
+          <tr><td>6</td><td>50</td><td></td><td></td><td>32.3</td><td></td><td></td></tr>
+          <tr><td>7</td><td>55</td><td></td><td></td><td>46.7</td><td></td><td></td></tr>
+          <tr><td>8</td><td>60</td><td></td><td></td><td>66.3</td><td></td><td></td></tr>
+          <tr><td>9</td><td>65</td><td></td><td></td><td>92.5</td><td></td><td></td></tr>
+          <tr><td>10</td><td>70</td><td></td><td></td><td>127</td><td></td><td></td></tr>
+          <tr><td>11</td><td>75</td><td></td><td></td><td>171</td><td></td><td></td></tr>
+          <tr><td>12</td><td>80</td><td></td><td></td><td>228</td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
 
-<div class="table-container">
-  <table id="readingTable">
-    <thead>
-      <tr>
-        <th>Temperature (°C)</th>
-        <th>Heating Voltage (V)</th>
-        <th>Heating Current (A)</th>
-        <th>Cooling Voltage (V)</th>
-        <th>Cooling Current (A)</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+    <!-- Chart Canvas -->
+    <canvas id="bandGapChart" width="800" height="400"></canvas>
 
-  <div style="text-align:center;">
-    <button class="btn green" id="startHeating">Start Heating Readings</button>
-    <button class="btn blue" id="startCooling">Start Cooling Readings</button>
-    <button class="btn yellow" id="resetBtn">Reset</button>
+    <!-- Formula and Result -->
+    <div class="formula-box">
+      <h5>Final Practical Formula (using two points on the curve):</h5>
+      <p>
+        \[
+        E_g = k \cdot \frac{\ln\left(\frac{I_{s2}}{I_{s1}}\right)}{\left(\frac{1}{T_1} - \frac{1}{T_2}\right)}
+        \]
+      </p>
+      <div class="result">Calculated Band Gap Energy: <span style="color:#ff9f1c;">E<sub>g</sub> = 0.6723 eV</span></div>
+    </div>
   </div>
 
-  <div class="status" id="statusText"></div>
-</div>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<script>
-const temps = [25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100];
-const tbody = document.querySelector("#readingTable tbody");
-const statusText = document.getElementById("statusText");
+  <script>
+    const table = document.getElementById('bandGapTable').getElementsByTagName('tbody')[0];
+    const xData = [];
+    const yData = [];
 
-let heatIndex = 0, coolIndex = temps.length - 1;
-let heatingInterval = null, coolingInterval = null;
+    for (let row of table.rows) {
+      const tempC = parseFloat(row.cells[1].textContent);
+      const iMicro = parseFloat(row.cells[4].textContent);
 
-// Helper to generate mock readings (you can link real values if needed)
-function randomVoltage() { return (0.6 + Math.random() * 0.3).toFixed(2); }
-function randomCurrent() { return (0.3 + Math.random() * 0.2).toFixed(2); }
+      const tempK = tempC + 273.15;
+      row.cells[2].textContent = tempK.toFixed(2);
 
-function addRow(temp, heatV="", heatA="", coolV="", coolA="") {
-  const tr = document.createElement("tr");
-  tr.innerHTML = `<td>${temp}</td><td>${heatV}</td><td>${heatA}</td><td>${coolV}</td><td>${coolA}</td>`;
-  tbody.appendChild(tr);
-}
+      const invT = 1 / tempK;
+      row.cells[3].textContent = invT.toFixed(6);
 
-document.getElementById("startHeating").addEventListener("click",()=>{
-  tbody.innerHTML="";
-  heatIndex=0;
-  statusText.textContent="Recording heating readings...";
-  clearInterval(coolingInterval);
-  heatingInterval = setInterval(()=>{
-    if(heatIndex < temps.length){
-      addRow(temps[heatIndex], randomVoltage(), randomCurrent(), "-", "-");
-      heatIndex++;
-    } else {
-      clearInterval(heatingInterval);
-      statusText.textContent="Heating readings completed!";
+      const iAmp = iMicro * 1e-6;
+      row.cells[5].textContent = iAmp.toExponential(5);
+
+      const logI = Math.log10(iMicro);
+      row.cells[6].textContent = logI.toFixed(3);
+
+      xData.push(invT);
+      yData.push(logI);
     }
-  },800);
-});
 
-document.getElementById("startCooling").addEventListener("click",()=>{
-  if(tbody.rows.length===0){
-    statusText.textContent="Please complete heating first.";
-    return;
-  }
-  coolIndex = temps.length - 1;
-  statusText.textContent="Recording cooling readings...";
-  clearInterval(heatingInterval);
-  coolingInterval = setInterval(()=>{
-    if(coolIndex >= 0){
-      const row = tbody.rows[coolIndex];
-      row.cells[3].textContent = randomVoltage();
-      row.cells[4].textContent = randomCurrent();
-      coolIndex--;
-    } else {
-      clearInterval(coolingInterval);
-      statusText.textContent="Cooling readings completed!";
-    }
-  },800);
-});
+    const ctx = document.getElementById('bandGapChart').getContext('2d');
+    const bandGapChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: xData,
+        datasets: [{
+          label: 'Log₁₀(I_s) vs 1/T',
+          data: yData,
+          borderColor: 'rgba(75, 29, 127, 1)',
+          backgroundColor: 'rgba(75, 29, 127, 0.2)',
+          fill: false,
+          tension: 0.3,
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: '1/T (K⁻¹) vs Log₁₀(I_s)',
+            font: { size: 18 }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '1/T (K⁻¹)'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Log₁₀(I_s)'
+            }
+          }
+        }
+      }
+    });
+  </script>
 
-document.getElementById("resetBtn").addEventListener("click",()=>{
-  tbody.innerHTML="";
-  clearInterval(heatingInterval);
-  clearInterval(coolingInterval);
-  statusText.textContent="Reset complete.";
-});
-</script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
